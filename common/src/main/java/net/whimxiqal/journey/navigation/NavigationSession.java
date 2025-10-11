@@ -46,7 +46,8 @@ public class NavigationSession implements NavigationProgress {
   private int currentStepIndex = 0;
   private double currentStepProgress = 0;
 
-  public NavigationSession(JourneyAgent agent, List<? extends SearchStep> steps, NavigatorOptionValues optionValues) {
+  public NavigationSession(JourneyAgent agent, List<? extends SearchStep> steps,
+      NavigatorOptionValues optionValues) {
     this.agent = agent;
     if (steps.isEmpty()) {
       throw new IllegalArgumentException("Steps may not be empty");
@@ -83,9 +84,9 @@ public class NavigationSession implements NavigationProgress {
       if (currentNavigationStep == null) {
         SearchStep previousStep = steps.get(Math.max(0, currentStepIndex - 1));
         SearchStep curStep = steps.get(currentStepIndex);
-        if (previousStep.location().domain() != curStep.location().domain()) {
+        if (!previousStep.location().domain().equals(curStep.location().domain())) {
           // The next step is into a different domain
-          if (location.domain() != curStep.location().domain()) {
+          if (!location.domain().equals(curStep.location().domain())) {
             // We haven't reached the new domain yet, break
             break;
           }
@@ -99,8 +100,10 @@ public class NavigationSession implements NavigationProgress {
 
       // Check progress along current step
       double currentCompletedStepLength = currentStepProgress * currentNavigationStep.length();
-      Vector locRelative = vector.subtract(currentNavigationStep.startVector());  // location of entity relative to start of step
-      double completedLength = Math.max(currentCompletedStepLength, locRelative.projectionOnto(currentNavigationStep.path()));
+      Vector locRelative = vector.subtract(currentNavigationStep.startVector()); // location of entity relative to start
+                                                                                 // of step
+      double completedLength = Math.max(currentCompletedStepLength,
+          locRelative.projectionOnto(currentNavigationStep.path()));
 
       if (completedLength >= currentNavigationStep.length()) {
         completedLength = currentNavigationStep.length();
@@ -127,7 +130,8 @@ public class NavigationSession implements NavigationProgress {
     if (originalStepIndex == currentStepIndex && originalStepProgress == currentStepProgress) {
       // we haven't made any progress this step, so let's try the more calculation-intensive
       // block-by-block search to see if the player has walked into a future location
-      for (int i = currentStepIndex; i < Math.min(steps.size(), currentStepIndex + NAVIGATION_LOOKAHEAD); i++) {
+      for (int i = currentStepIndex; i < Math.min(steps.size(),
+          currentStepIndex + NAVIGATION_LOOKAHEAD); i++) {
         SearchStep step = steps.get(currentStepIndex);
         if (!location.equals(step.location())) {
           continue;

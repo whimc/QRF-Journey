@@ -1,6 +1,5 @@
 plugins {
     id 'java'
-    id 'org.cadixdev.licenser'
     id 'checkstyle'
 }
 
@@ -10,7 +9,7 @@ project.ext.snapshot = true
 // *************************
 
 def journeyEnv = System.getenv('JOURNEY_ENV')
-def tagInfo = 'git describe --tags --match=v[0-9]*'.execute().text.trim()
+def tagInfo = "git -C ${projectDir} describe --tags --match=v*".execute().text.trim()
 assert tagInfo.matches("v.*")
 if (journeyEnv != null && journeyEnv == 'PROD') {
     // Production build
@@ -43,12 +42,6 @@ jar {
     from '../LICENSE.txt'
 }
 
-license {
-    header = rootProject.file('LICENSE.txt')
-    include '**/*.java'
-    newLine = true
-}
-
 repositories {
     mavenCentral()
 }
@@ -64,6 +57,7 @@ java {
 }
 
 checkstyle {
+    toolVersion = "10.17.0"
     ignoreFailures = false
     maxWarnings = 0
 }

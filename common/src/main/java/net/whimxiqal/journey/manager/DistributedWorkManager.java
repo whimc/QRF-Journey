@@ -54,7 +54,7 @@ public class DistributedWorkManager {
   }
 
   private void execute(WorkItemExecutor executor) {
-    Journey.get().proxy().schedulingManager().schedule(executor, true);
+    Journey.get().proxy().schedulingManager().scheduleAsync(executor);
   }
 
   /**

@@ -25,7 +25,6 @@ package net.whimxiqal.journey.navigation;
 
 import java.util.Collection;
 import java.util.Collections;
-import net.whimxiqal.journey.Synchronous;
 
 /**
  * Manage information about the traversal of locatables
@@ -36,7 +35,6 @@ public interface Navigator {
   /**
    * Begin navigation. This will only be called once.
    */
-  @Synchronous
   boolean start();
 
   /**

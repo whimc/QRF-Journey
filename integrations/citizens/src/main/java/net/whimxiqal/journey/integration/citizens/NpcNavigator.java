@@ -35,75 +35,30 @@ import net.citizensnpcs.api.npc.NPC;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.whimxiqal.journey.JourneyAgent;
-import net.whimxiqal.journey.bukkit.JourneyBukkitApi;
-import net.whimxiqal.journey.bukkit.JourneyBukkitApiProvider;
 import net.whimxiqal.journey.integration.citizens.config.ConfigSettings;
 import net.whimxiqal.journey.navigation.NavigationProgress;
 import net.whimxiqal.journey.navigation.Navigator;
 import net.whimxiqal.journey.navigation.option.NavigatorOptionValues;
+import net.whimxiqal.journey.paper.JourneyPaperApi;
 import org.bukkit.Location;
 import org.bukkit.Particle;
 import org.bukkit.entity.EntityType;
 
 public class NpcNavigator implements Navigator {
 
-  public static final Set<EntityType> ALLOWED_GUIDE_ENTITY_TYPES = new HashSet<>(Arrays.asList(
-      EntityType.WITHER_SKELETON,
-      EntityType.STRAY,
-      EntityType.HUSK,
-      EntityType.ZOMBIE_VILLAGER,
-      EntityType.SKELETON_HORSE,
-      EntityType.ZOMBIE_HORSE,
-      EntityType.DONKEY,
-      EntityType.MULE,
-      EntityType.EVOKER,
-      EntityType.VEX,
-      EntityType.VINDICATOR,
-      EntityType.ILLUSIONER,
-      EntityType.CREEPER,
-      EntityType.SKELETON,
-      EntityType.SPIDER,
-      EntityType.ZOMBIE,
-      EntityType.SLIME,
-      EntityType.GHAST,
-      EntityType.ZOMBIFIED_PIGLIN,
-      EntityType.ENDERMAN,
-      EntityType.CAVE_SPIDER,
-      EntityType.SILVERFISH,
-      EntityType.BLAZE,
-      EntityType.MAGMA_CUBE,
-      EntityType.WITHER,
-      EntityType.BAT,
-      EntityType.WITCH,
-      EntityType.ENDERMITE,
-      EntityType.PIG,
-      EntityType.SHEEP,
-      EntityType.COW,
-      EntityType.CHICKEN,
-      EntityType.WOLF,
-      EntityType.MOOSHROOM,
-      EntityType.SNOW_GOLEM,
-      EntityType.OCELOT,
-      EntityType.IRON_GOLEM,
-      EntityType.HORSE,
-      EntityType.RABBIT,
-      EntityType.POLAR_BEAR,
-      EntityType.LLAMA,
-      EntityType.PARROT,
-      EntityType.VILLAGER,
-      EntityType.TURTLE,
-      EntityType.PHANTOM,
-      EntityType.DROWNED,
-      EntityType.CAT,
-      EntityType.PANDA,
-      EntityType.PILLAGER,
-      EntityType.RAVAGER,
-      EntityType.TRADER_LLAMA,
-      EntityType.WANDERING_TRADER,
-      EntityType.FOX,
-      EntityType.BEE,
-      EntityType.PLAYER
-  ));
+  public static final Set<EntityType> ALLOWED_GUIDE_ENTITY_TYPES = new HashSet<>(
+      Arrays.asList(EntityType.WITHER_SKELETON, EntityType.STRAY, EntityType.HUSK, EntityType.ZOMBIE_VILLAGER,
+          EntityType.SKELETON_HORSE, EntityType.ZOMBIE_HORSE, EntityType.DONKEY, EntityType.MULE,
+          EntityType.EVOKER, EntityType.VEX, EntityType.VINDICATOR, EntityType.ILLUSIONER, EntityType.CREEPER,
+          EntityType.SKELETON, EntityType.SPIDER, EntityType.ZOMBIE, EntityType.SLIME, EntityType.GHAST,
+          EntityType.ZOMBIFIED_PIGLIN, EntityType.ENDERMAN, EntityType.CAVE_SPIDER, EntityType.SILVERFISH,
+          EntityType.BLAZE, EntityType.MAGMA_CUBE, EntityType.WITHER, EntityType.BAT, EntityType.WITCH,
+          EntityType.ENDERMITE, EntityType.PIG, EntityType.SHEEP, EntityType.COW, EntityType.CHICKEN,
+          EntityType.WOLF, EntityType.MOOSHROOM, EntityType.SNOW_GOLEM, EntityType.OCELOT,
+          EntityType.IRON_GOLEM, EntityType.HORSE, EntityType.RABBIT, EntityType.POLAR_BEAR, EntityType.LLAMA,
+          EntityType.PARROT, EntityType.VILLAGER, EntityType.TURTLE, EntityType.PHANTOM, EntityType.DROWNED,
+          EntityType.CAT, EntityType.PANDA, EntityType.PILLAGER, EntityType.RAVAGER, EntityType.TRADER_LLAMA,
+          EntityType.WANDERING_TRADER, EntityType.FOX, EntityType.BEE, EntityType.PLAYER));
   private final static int BLOCKS_AHEAD_NPC_STARTS = 1;
   private final JourneyAgent agent;
   private final NavigationProgress progress;
@@ -125,11 +80,8 @@ public class NpcNavigator implements Navigator {
     if (particle == null) {
       return;
     }
-    particle.builder()
-        .location(location)
-        .offset(0.5, 0.5, 0.5)
-        .color(particle == Particle.DUST ? ConfigSettings.SPAWN_PARTICLE_COLOR.load() : null, 3)
-        .count(15)
+    particle.builder().location(location).offset(0.5, 0.5, 0.5)
+        .color(particle == Particle.DUST ? ConfigSettings.SPAWN_PARTICLE_COLOR.load() : null, 3).count(15)
         .spawn();
   }
 
@@ -140,7 +92,6 @@ public class NpcNavigator implements Navigator {
 
   @Override
   public boolean start() {
-    JourneyBukkitApi journeyBukkitApi = JourneyBukkitApiProvider.get();
     if (progress.steps().isEmpty()) {
       return true;
     }
@@ -151,7 +102,8 @@ public class NpcNavigator implements Navigator {
       if (spawnLocationIndex + 1 >= progress.steps().size()) {
         break;
       }
-      if (progress.steps().get(spawnLocationIndex).location().domain() != progress.steps().get(spawnLocationIndex + 1).location().domain()) {
+      if (!progress.steps().get(spawnLocationIndex).location().domain()
+          .equals(progress.steps().get(spawnLocationIndex + 1).location().domain())) {
         break;
       }
       spawnLocationIndex++;
@@ -160,22 +112,26 @@ public class NpcNavigator implements Navigator {
     EntityType preferredEntityType = optionValues.value(NpcNavigatorOptions.ENTITY_TYPE);
     NPC npc;
     try {
-      npc = JourneyCitizens.get().guideStore().issueGuide(preferredEntityType, optionValues.value(NpcNavigatorOptions.NAME));
+      npc = JourneyCitizens.get().guideStore().issueGuide(preferredEntityType,
+          optionValues.value(NpcNavigatorOptions.NAME));
     } catch (IOException e) {
       JourneyCitizens.logger().severe(e.getMessage());
       return false;
     }
     if (npc == null) {
-      agent.audience().sendMessage(Component.text("Could not spawn an NPC right now, try again later").color(NamedTextColor.RED));
+      agent.audience().sendMessage(
+          Component.text("Could not spawn an NPC right now, try again later").color(NamedTextColor.RED));
       return false;
     }
 
-    Location spawnLocation = journeyBukkitApi.toLocation(progress.steps().get(spawnLocationIndex).location());
+    Location spawnLocation = JourneyPaperApi.get()
+        .toLocation(progress.steps().get(spawnLocationIndex).location());
     npc.spawn(spawnLocation);
     spawnEntitySpawnParticles(spawnLocation);
 
     npcId = npc.getId();
-    npc.getDefaultGoalController().addGoal(new GuideBehavior(this, progress.steps(), spawnLocationIndex), 1000);
+    npc.getDefaultGoalController().addGoal(new GuideBehavior(this, progress.steps(), spawnLocationIndex),
+        1000);
 
     return true;
   }

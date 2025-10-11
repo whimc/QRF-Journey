@@ -64,8 +64,8 @@ public final class Request {
       }
       httpsConnection.setRequestMethod("GET");
       if (httpsConnection.getResponseCode() != HttpURLConnection.HTTP_OK) {
-        Journey.logger().error("Request to " + url + " resulted in response code " + httpsConnection.getResponseCode()
-            + ": " + httpsConnection.getResponseMessage());
+        Journey.logger().error("Request to " + url + " resulted in response code "
+            + httpsConnection.getResponseCode() + ": " + httpsConnection.getResponseMessage());
         return null;
       }
       return new JSONTokener(new InputStreamReader(httpsConnection.getInputStream()));
@@ -100,7 +100,9 @@ public final class Request {
   }
 
   private static Comparator<JourneyReleaseVersion> increasingReleaseVersionComparator() {
-    return Comparator.<JourneyReleaseVersion, String>comparing(v -> v.versionTag, new ReleaseVersionComparator()).reversed();
+    return Comparator
+        .<JourneyReleaseVersion, String>comparing(v -> v.versionTag, new ReleaseVersionComparator())
+        .reversed();
   }
 
   /**
@@ -118,7 +120,8 @@ public final class Request {
     JSONArray versions = new JSONArray(tokener);
     for (Object version : versions) {
       if (!(version instanceof JSONObject versionObj)) {
-        throw new IllegalStateException("Unable to read version object from result from Modrinth API: " + version);
+        throw new IllegalStateException(
+            "Unable to read version object from result from Modrinth API: " + version);
       }
       if (!versionObj.getString("status").equals("listed")) {
         // we only care about listed versions
@@ -131,7 +134,8 @@ public final class Request {
       boolean correctLoader = false;
       for (Object foundLoader : versionObj.getJSONArray("loaders")) {
         if (!(foundLoader instanceof String foundLoaderString)) {
-          throw new IllegalStateException("Unable to read loader from result from Modrinth API: " + foundLoader);
+          throw new IllegalStateException(
+              "Unable to read loader from result from Modrinth API: " + foundLoader);
         }
         if (foundLoaderString.equalsIgnoreCase(loader)) {
           correctLoader = true;
@@ -139,7 +143,8 @@ public final class Request {
         }
       }
       if (correctLoader) {
-        result.add(new JourneyReleaseVersion(versionObj.getString("version_number"), versionObj.getString("changelog")));
+        result.add(new JourneyReleaseVersion(versionObj.getString("version_number"),
+            versionObj.getString("changelog")));
       }
     }
     result.sort(increasingReleaseVersionComparator());
@@ -147,14 +152,16 @@ public final class Request {
   }
 
   public static void evaluateVersionAge(String loader, String version) {
-    Journey.get().proxy().schedulingManager().schedule(() -> {
+    Journey.get().proxy().schedulingManager().scheduleAsync(() -> {
       List<JourneyReleaseVersion> allReleasedVersions = requestReleasedVersions(loader);
       if (allReleasedVersions.isEmpty()) {
         // Should never be empty except in error scenarious
-        Journey.logger().warn("Could not get latest versions from Modrinth. Please check to make sure you have the latest version.");
+        Journey.logger().warn(
+            "Could not get latest versions from Modrinth. Please check to make sure you have the latest version.");
         return;
       }
-      int index = Collections.binarySearch(allReleasedVersions, new JourneyReleaseVersion(version, null), increasingReleaseVersionComparator());
+      int index = Collections.binarySearch(allReleasedVersions, new JourneyReleaseVersion(version, null),
+          increasingReleaseVersionComparator());
       if (index == 0) {
         // this is the latest official version, so we are fine
         return;
@@ -164,39 +171,42 @@ public final class Request {
         StringBuilder versionHistoryString = new StringBuilder();
         for (int i = 0; i < Math.min(index, MAX_NEWER_VERSIONS_TO_SEND_CONSOLE); i++) {
           JourneyReleaseVersion missingVersion = allReleasedVersions.get(i);
-          versionHistoryString.append("\n%%% Version ")
-              .append(missingVersion.versionTag)
-              .append(" %%%\n")
-              .append(missingVersion.changelog)
-              .append("\n");
+          versionHistoryString.append("\n%%% Version ").append(missingVersion.versionTag).append(" %%%\n")
+              .append(missingVersion.changelog).append("\n");
         }
 
-        Journey.logger().warn("Your version of Journey is " + index
-            + " version" + (index > 1 ? "s" : "")
-            + " behind! Download the latest version at " + Links.DOWNLOAD_LINK
-            + "\n" + versionHistoryString);
+        Journey.logger().warn("Your version of Journey is " + index + " version" + (index > 1 ? "s" : "")
+            + " behind! Download the latest version at " + Links.DOWNLOAD_LINK + "\n" + versionHistoryString);
       } else {
         // Cannot find it as an official release
-        Journey.logger().warn("You are running an unsupported version: " + version + ". Please download the latest official release (v" + allReleasedVersions.get(0).versionTag + ") at " + Links.DOWNLOAD_LINK);
+        Journey.logger()
+            .warn("You are running an unsupported version: " + version
+                + ". Please download the latest official release (v" + allReleasedVersions.get(0).versionTag
+                + ") at " + Links.DOWNLOAD_LINK);
       }
-      Journey.logger().warn("To silence this message in the future, edit the extra.check-latest-version-on-startup setting in Journey's config.yml file.");
-    }, true);
+      Journey.logger().warn(
+          "To silence this message in the future, edit the extra.check-latest-version-on-startup setting in Journey's config.yml file.");
+    });
   }
 
-  public static void checkForIntegrationPlugins(String loader, String gameVersion, Set<String> downloadedPlugins) {
-    Journey.logger().info("Running checkForIntegrationPlugins: " + loader + ", " + gameVersion + ", " + downloadedPlugins);
+  public static void checkForIntegrationPlugins(String loader, String gameVersion,
+      Set<String> downloadedPlugins) {
+    Journey.logger().info(
+        "Running checkForIntegrationPlugins: " + loader + ", " + gameVersion + ", " + downloadedPlugins);
     IntegrationPluginChecker checker = new IntegrationPluginChecker(loader, gameVersion, downloadedPlugins);
-    Journey.get().proxy().schedulingManager().schedule(checker, true);
+    Journey.get().proxy().schedulingManager().scheduleAsync(checker);
   }
 
   public static class IntegrationPluginChecker implements Runnable {
     private static final String JOURNEY_MODRINTH_PROJECT_ID = "nUFXQBU6";
-    private static final String[] ALWAYS_ENDORSED_CREATORS = {"whimxiqal"};
+    private static final String[] ALWAYS_ENDORSED_CREATORS = { "whimxiqal" };
     private static final String MODRINTH_API_PROJECT_ENDPOINT = "https://api.modrinth.com/v2/project/";
     private static final String MODRINTH_API_QUERY_ENDPOINT = "https://api.modrinth.com/v2/search";
     private static final String PLUGIN_CREATOR_ENDORSEMENT_LIST_DELIMITER_REGEX = "\\n\\s*-\\s*";
-    private static final Pattern PLUGIN_CREATOR_ENDORSEMENT_PATTERN = Pattern.compile("Endorsed Creators:((?:" + PLUGIN_CREATOR_ENDORSEMENT_LIST_DELIMITER_REGEX + "\\S+)+)");
-    private static final Pattern PLUGIN_INTEGRATION_MARKER = Pattern.compile("(?:[Ii]ntegrates|[Cc]onnects) Journey (?:to|with) (\\S+).?");
+    private static final Pattern PLUGIN_CREATOR_ENDORSEMENT_PATTERN = Pattern
+        .compile("Endorsed Creators:((?:" + PLUGIN_CREATOR_ENDORSEMENT_LIST_DELIMITER_REGEX + "\\S+)+)");
+    private static final Pattern PLUGIN_INTEGRATION_MARKER = Pattern
+        .compile("(?:[Ii]ntegrates|[Cc]onnects) Journey (?:to|with) (\\S+).?");
     private static final int MODRINTH_API_PAGE_SIZE = 100;
     private final CompletableFuture<Void> future = new CompletableFuture<>();
 
@@ -212,7 +222,8 @@ public final class Request {
     public IntegrationPluginChecker(String loader, String gameVersion, Set<String> downloadedPlugins) {
       this.loader = loader;
       this.gameVersion = gameVersion;
-      this.downloadedPlugins = downloadedPlugins.stream().map(plugin -> plugin.toLowerCase(Locale.ENGLISH)).collect(Collectors.toSet());
+      this.downloadedPlugins = downloadedPlugins.stream().map(plugin -> plugin.toLowerCase(Locale.ENGLISH))
+          .collect(Collectors.toSet());
     }
 
     public CompletableFuture<Void> future() {
@@ -226,10 +237,11 @@ public final class Request {
           return null;
         }
         httpsConnection.setRequestMethod("GET");
-        httpsConnection.setRequestProperty("User-Agent", "whimxiqal/journey/" + Journey.get().proxy().version() + "(whimxiqal@gmail.com)");
+        httpsConnection.setRequestProperty("User-Agent",
+            "whimxiqal/journey/" + Journey.get().proxy().version() + "(whimxiqal@gmail.com)");
         if (httpsConnection.getResponseCode() != HttpURLConnection.HTTP_OK) {
-          Journey.logger().error("Request to " + url + " resulted in response code " + httpsConnection.getResponseCode()
-              + ": " + httpsConnection.getResponseMessage());
+          Journey.logger().error("Request to " + url + " resulted in response code "
+              + httpsConnection.getResponseCode() + ": " + httpsConnection.getResponseMessage());
           return null;
         }
         int secondsToWait = 0;
@@ -243,7 +255,8 @@ public final class Request {
           Journey.logger().error("Request to " + url + " returned rate limits that could not be parsed");
           return null;
         }
-        return new RemoteJsonResponse(new JSONTokener(new InputStreamReader(httpsConnection.getInputStream())), secondsToWait);
+        return new RemoteJsonResponse(
+            new JSONTokener(new InputStreamReader(httpsConnection.getInputStream())), secondsToWait);
       } catch (Exception e) {
         Journey.logger().error("Error requesting build information from Modrinth: " + e.getMessage());
         return null;
@@ -251,7 +264,8 @@ public final class Request {
     }
 
     protected List<String> getEndorsedPluginCreators() {
-      RemoteJsonResponse response = requestModrinthJson(MODRINTH_API_PROJECT_ENDPOINT + JOURNEY_MODRINTH_PROJECT_ID);
+      RemoteJsonResponse response = requestModrinthJson(
+          MODRINTH_API_PROJECT_ENDPOINT + JOURNEY_MODRINTH_PROJECT_ID);
 
       List<String> out = new LinkedList<>(Arrays.asList(ALWAYS_ENDORSED_CREATORS));
       if (response == null) {
@@ -303,32 +317,35 @@ public final class Request {
     }
 
     private void resume() throws JSONException {
-      for (Iterator<String> creatorsIt = creatorsLeft.iterator(); creatorsIt.hasNext(); ) {
+      for (Iterator<String> creatorsIt = creatorsLeft.iterator(); creatorsIt.hasNext();) {
         String creator = creatorsIt.next();
-        String baseQueryUrl = MODRINTH_API_QUERY_ENDPOINT + "?" +
-            "facets=[[%22author:" +  // %22 is "
-            creator +
-            "%22]]&index=newest" +  // %22 is "
-            "&limit=" + MODRINTH_API_PAGE_SIZE;  // sort by newest for deterministic iterative results below
+        String baseQueryUrl = MODRINTH_API_QUERY_ENDPOINT + "?" + "facets=[[%22author:" + // %22 is "
+            creator + "%22]]&index=newest" + // %22 is "
+            "&limit=" + MODRINTH_API_PAGE_SIZE; // sort by newest for deterministic iterative results below
         do {
           if (currentHitsFound > currentTotalHits) {
-            Journey.logger().error(String.format("Internal error attempting to fetch integration plugins from Modrinth: hits found (%d) > total hits (%d)", currentHitsFound, currentTotalHits));
+            Journey.logger().error(String.format(
+                "Internal error attempting to fetch integration plugins from Modrinth: hits found (%d) > total hits (%d)",
+                currentHitsFound, currentTotalHits));
             future.complete(null);
             return;
           }
           // Process any unprocessed hits
           boolean processedHit = !unprocessedHitsQueue.isEmpty();
           int secondsToWait = 0;
-          for (Iterator<String> unprocessedHitsIt = unprocessedHitsQueue.iterator(); unprocessedHitsIt.hasNext(); unprocessedHitsIt.remove()) {
-            if (secondsToWait > 0) {  // put this check to wait at the start so "continues" jump to here
-              Journey.get().proxy().schedulingManager().schedule(this::resumeSafe, true, (secondsToWait + 1) * 20);
+          for (Iterator<String> unprocessedHitsIt = unprocessedHitsQueue.iterator(); unprocessedHitsIt
+              .hasNext(); unprocessedHitsIt.remove()) {
+            if (secondsToWait > 0) { // put this check to wait at the start so "continues" jump to here
+              Journey.get().proxy().schedulingManager().scheduleAsync(this::resumeSafe,
+                  (secondsToWait + 1) * 20);
               return;
             }
             String unprocessedHit = unprocessedHitsIt.next();
             // Send request for hit
             RemoteJsonResponse response = requestModrinthJson(MODRINTH_API_PROJECT_ENDPOINT + unprocessedHit);
             if (response == null) {
-              Journey.logger().error("Error fetching plugin details from Modrinth for project id: " + unprocessedHit);
+              Journey.logger()
+                  .error("Error fetching plugin details from Modrinth for project id: " + unprocessedHit);
               future.complete(null);
               return;
             }
@@ -354,7 +371,8 @@ public final class Request {
             // lets guarantee that this project has Journey and at least one other project as a required dependency.
 
             // Get the versions and check if there are any that match the loader, game version, and dependencies
-            RemoteJsonResponse versionResponse = requestModrinthJson(MODRINTH_API_PROJECT_ENDPOINT + unprocessedHit + "/version");
+            RemoteJsonResponse versionResponse = requestModrinthJson(
+                MODRINTH_API_PROJECT_ENDPOINT + unprocessedHit + "/version");
             if (versionResponse == null) {
               future.complete(null);
               return;
@@ -434,7 +452,8 @@ public final class Request {
             // this is an integration plugin! Get all the info from the JSON response and save
             String title = jsonProject.getString("title");
             String description = jsonProject.getString("description");
-            integrationPlugins.add(new IntegrationPlugin(slug, title, downloadedPlugin, creator, description, pluginVersion));
+            integrationPlugins.add(
+                new IntegrationPlugin(slug, title, downloadedPlugin, creator, description, pluginVersion));
           }
           if (processedHit && currentHitsFound == currentTotalHits) {
             // done processing for this creator, we've processed all the hits we can
@@ -456,15 +475,15 @@ public final class Request {
           // Sanity check response
           int offset = obj.getInt("offset");
           if (offset != currentHitsFound) {
-            Journey.logger().error("Incorrect response when fetching integration plugins from Modrinth: " +
-                offset + " != " + currentHitsFound);
+            Journey.logger().error("Incorrect response when fetching integration plugins from Modrinth: "
+                + offset + " != " + currentHitsFound);
             future.complete(null);
             return;
           }
           int limit = obj.getInt("limit");
           if (limit != MODRINTH_API_PAGE_SIZE) {
-            Journey.logger().error("Incorrect response when fetching integration plugins from Modrinth: " +
-                limit + " != " + MODRINTH_API_PAGE_SIZE);
+            Journey.logger().error("Incorrect response when fetching integration plugins from Modrinth: "
+                + limit + " != " + MODRINTH_API_PAGE_SIZE);
             future.complete(null);
             return;
           }
@@ -481,7 +500,8 @@ public final class Request {
 
           // pause now if we're getting too close to the API limit
           if (response.secondsToWait > 0) {
-            Journey.get().proxy().schedulingManager().schedule(this::resumeSafe, true, (response.secondsToWait + 1) * 20);
+            Journey.get().proxy().schedulingManager().scheduleAsync(this::resumeSafe,
+                (response.secondsToWait + 1) * 20);
             return;
           }
 
@@ -491,14 +511,18 @@ public final class Request {
 
       if (!integrationPlugins.isEmpty()) {
         // We're done grabbing all the data! Send the messages
-        Journey.logger().warn("Some of your installed plugins may integrate with Journey if you download the appropriate extra plugins:");
+        Journey.logger().warn(
+            "Some of your installed plugins may integrate with Journey if you download the appropriate extra plugins:");
         Journey.logger().warn("");
         for (IntegrationPlugin plugin : integrationPlugins) {
-          Journey.logger().warn(String.format("\t- %s (v%s) by %s, %d downloads: %s (Journey <-> %s)",
-              plugin.title, plugin.version.versionNumber, plugin.author, plugin.version.downloads, plugin.description, plugin.downloadedPlugin));
+          Journey.logger()
+              .warn(String.format("\t- %s (v%s) by %s, %d downloads: %s (Journey <-> %s)", plugin.title,
+                  plugin.version.versionNumber, plugin.author, plugin.version.downloads, plugin.description,
+                  plugin.downloadedPlugin));
         }
         Journey.logger().warn("");
-        Journey.logger().warn("To silence this message in the future, edit the extra.find-integrations-on-startup setting in Journey's config.yml file.");
+        Journey.logger().warn(
+            "To silence this message in the future, edit the extra.find-integrations-on-startup setting in Journey's config.yml file.");
       }
       future.complete(null);
     }
@@ -510,7 +534,7 @@ public final class Request {
     }
 
     private record IntegrationPlugin(String slug, String title, String downloadedPlugin, String author,
-                                     String description, IntegrationPluginVersion version) {
+        String description, IntegrationPluginVersion version) {
     }
 
   }

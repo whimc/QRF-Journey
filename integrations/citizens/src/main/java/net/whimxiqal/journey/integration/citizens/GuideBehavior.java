@@ -31,13 +31,11 @@ import net.citizensnpcs.api.ai.tree.BehaviorStatus;
 import net.citizensnpcs.api.npc.NPC;
 import net.citizensnpcs.trait.Gravity;
 import net.whimxiqal.journey.Cell;
-import net.whimxiqal.journey.bukkit.JourneyBukkitApi;
-import net.whimxiqal.journey.bukkit.JourneyBukkitApiProvider;
+import net.whimxiqal.journey.paper.JourneyPaperApi;
 import net.whimxiqal.journey.search.SearchStep;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Entity;
-import org.bukkit.entity.EntityType;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.util.Vector;
 
@@ -46,7 +44,6 @@ public class GuideBehavior extends BehaviorGoalAdapter {
   private static final int NAVIGATION_TARGET_MAX_DISTANCE_SQUARED = 64;
   private static final int AGENT_DISTANCE_PROGRESS_THRESHOLD_SQUARED = 64;
   private static final int COMPLETION_THRESHOLD_SQUARED = 9;
-  private final JourneyBukkitApi journeyBukkitApi;
   private final NpcNavigator navigator;
   private final List<? extends SearchStep> path;
   private boolean done;
@@ -54,7 +51,6 @@ public class GuideBehavior extends BehaviorGoalAdapter {
   private int currentPathIndex;
 
   public GuideBehavior(NpcNavigator navigator, List<? extends SearchStep> path, int currentPathIndex) {
-    this.journeyBukkitApi = JourneyBukkitApiProvider.get();
     this.navigator = navigator;
     this.path = path;
     this.done = false;
@@ -95,7 +91,8 @@ public class GuideBehavior extends BehaviorGoalAdapter {
 
     if (done) {
       performIdleBehavior(npc, agent);
-      if (!journeyBukkitApi.toCell(npc.getEntity().getLocation()).equals(path.getLast().location())) {
+      if (!JourneyPaperApi.get().toCell(npc.getEntity().getLocation())
+          .equals(path.get(path.size() - 1).location())) {
         // somehow we got off the destination, re-teleport there
         npc.teleport(destination(), PlayerTeleportEvent.TeleportCause.PLUGIN);
       }
@@ -118,7 +115,7 @@ public class GuideBehavior extends BehaviorGoalAdapter {
     }
 
     Location npcLocation = npc.getEntity().getLocation();
-    Cell npcCell = journeyBukkitApi.toCell(npcLocation);
+    Cell npcCell = JourneyPaperApi.get().toCell(npcLocation);
     if (agentTooFarWay(npc.getEntity(), agent)) {
       // Agent is too far away from NPC, or we've reached the destination. Turn, face agent, and wait
       if (npc.getNavigator().isNavigating()) {
@@ -144,12 +141,13 @@ public class GuideBehavior extends BehaviorGoalAdapter {
 
     // get the next best target to navigate to
     SearchStep target = path.get(currentPathIndex);
-    while (npcCell.distanceToSquared(target.location()) <= NAVIGATION_TARGET_MIN_DISTANCE_SQUARED && currentPathIndex < path.size() - 1) {
+    while (npcCell.distanceToSquared(target.location()) <= NAVIGATION_TARGET_MIN_DISTANCE_SQUARED
+        && currentPathIndex < path.size() - 1) {
       currentPathIndex++;
       target = path.get(currentPathIndex);
     }
 
-    Location targetLocation = journeyBukkitApi.toLocation(target.location()).toCenterLocation();
+    Location targetLocation = JourneyPaperApi.get().toLocation(target.location()).toCenterLocation();
     if (npcCell.distanceToSquared(target.location()) > NAVIGATION_TARGET_MAX_DISTANCE_SQUARED) {
       // oops, this is too far. Just teleport.
       npc.teleport(targetLocation, PlayerTeleportEvent.TeleportCause.PLUGIN);
@@ -168,14 +166,14 @@ public class GuideBehavior extends BehaviorGoalAdapter {
     }
     Entity agent = getAgent();
     return agent == null // we want to sit and wait for them to come back
-        || done
-        || !npc.getNavigator().isNavigating()  // we want to set the navigator
-        || agentTooFarWay(npc.getEntity(), agent)  // we want to sit and wait for the user to get close again
+        || done || !npc.getNavigator().isNavigating() // we want to set the navigator
+        || agentTooFarWay(npc.getEntity(), agent) // we want to sit and wait for the user to get close again
         || atDestination(npc.getEntity());
   }
 
   private boolean agentTooFarWay(Entity npc, Entity agent) {
-    return npc.getLocation().distanceSquared(agent.getLocation()) >= AGENT_DISTANCE_PROGRESS_THRESHOLD_SQUARED;
+    return npc.getLocation()
+        .distanceSquared(agent.getLocation()) >= AGENT_DISTANCE_PROGRESS_THRESHOLD_SQUARED;
   }
 
   private boolean atDestination(Entity npc) {
@@ -187,7 +185,7 @@ public class GuideBehavior extends BehaviorGoalAdapter {
   }
 
   private Location destination() {
-    return journeyBukkitApi.toLocation(path.getLast().location()).toCenterLocation();
+    return JourneyPaperApi.get().toLocation(path.getLast().location()).toCenterLocation();
   }
 
   private void performIdleBehavior(NPC npc, Entity agent) {

@@ -1,0 +1,14 @@
+name: JourneyNotQuests
+version: '${version}'
+main: net.whimxiqal.journey.integration.notquests.JourneyNotQuests
+api-version: 1.21
+authors: [ whimxiqal ]
+description: Integrates Journey with NotQuests
+dependencies:
+  server:
+    Journey:
+      load: BEFORE
+      required: true
+    NotQuests:
+      load: BEFORE
+      required: true

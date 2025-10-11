@@ -23,12 +23,13 @@
 
 package net.whimxiqal.journey.navigation;
 
+import net.kyori.adventure.key.Key;
 import net.whimxiqal.journey.Cell;
 import net.whimxiqal.journey.math.Vector;
 
 public class NavigationStep {
 
-  private final int domain;
+  private final Key domain;
   private final Vector startVector;
   private final Vector path;
 
@@ -36,13 +37,12 @@ public class NavigationStep {
   private final Cell destination;
 
   public NavigationStep(Cell origin, Cell destination) {
-    if (origin.domain() != destination.domain()) {
+    if (!origin.domain().equals(destination.domain())) {
       throw new IllegalArgumentException("Origin and destination must have the same domain");
     }
     this.domain = origin.domain();
     this.startVector = new Vector(origin.blockX(), origin.blockY(), origin.blockZ());
-    this.path = new Vector(destination.blockX() - origin.blockX(),
-        destination.blockY() - origin.blockY(),
+    this.path = new Vector(destination.blockX() - origin.blockX(), destination.blockY() - origin.blockY(),
         destination.blockZ() - origin.blockZ());
     this.totalLength = path.magnitude();
     this.destination = destination;
@@ -52,7 +52,7 @@ public class NavigationStep {
     return totalLength;
   }
 
-  public int domain() {
+  public Key domain() {
     return domain;
   }
 
@@ -70,10 +70,7 @@ public class NavigationStep {
 
   @Override
   public String toString() {
-    return "NavigationStep{" +
-        "startVector=" + startVector +
-        ", path=" + path +
-        ", destination=" + destination +
-        '}';
+    return "NavigationStep{" + "startVector=" + startVector + ", path=" + path + ", destination="
+        + destination + '}';
   }
 }

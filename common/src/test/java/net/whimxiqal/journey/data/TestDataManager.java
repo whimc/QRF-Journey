@@ -27,7 +27,6 @@ public class TestDataManager implements DataManager {
   PersonalWaypointManager personalWaypointManager = new TestPersonalWaypointManager();
   PublicWaypointManager publicWaypointManager = new TestPublicWaypointManager();
   PathRecordManager pathRecordManager = new TestPathRecordManager();
-  TunnelDataManager tunnelDataManager = new TestTunnelDataManager();
 
   @Override
   public DataVersion version() {
@@ -47,11 +46,6 @@ public class TestDataManager implements DataManager {
   @Override
   public PathRecordManager pathRecordManager() {
     return pathRecordManager;
-  }
-
-  @Override
-  public TunnelDataManager netherPortalManager() {
-    return tunnelDataManager;
   }
 
 }

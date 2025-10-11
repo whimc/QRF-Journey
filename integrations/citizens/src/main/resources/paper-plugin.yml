@@ -1,0 +1,14 @@
+name: JourneyCitizens
+version: '${version}'
+main: net.whimxiqal.journey.integration.citizens.JourneyCitizens
+api-version: 1.21
+authors: [ whimxiqal ]
+description: Integrates Journey with Citizens
+dependencies:
+  server:
+    Journey:
+      load: BEFORE
+      required: true
+    Citizens:
+      load: BEFORE
+      required: true

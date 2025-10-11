@@ -21,13 +21,13 @@ repositories {
 dependencies {
     implementation project(':api')
     implementation project(':bukkit-api')
-    implementation 'io.papermc.paper:paper-api:1.20.6-R0.1-SNAPSHOT'
+    implementation 'dev.folia:folia-api:1.21.8-R0.1-SNAPSHOT'
     implementation 'net.kyori:adventure-api:4.17.0'
     implementation 'net.kyori:adventure-text-serializer-plain:4.17.0'
     implementation 'org.betonquest:betonquest:2.1.3'
 
-    testImplementation 'org.mockito:mockito-core:5.3.1'
+    testImplementation 'org.mockito:mockito-core:5.20.0'
     testImplementation 'org.apache.logging.log4j:log4j-core:2.22.0'
-    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.9.2'
-    testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.9.2'
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.2'
+    testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.10.2'
 }

@@ -19,8 +19,7 @@ repositories {
 
 dependencies {
     implementation project(':api')
-    implementation project(':bukkit-api')
-    implementation 'io.papermc.paper:paper-api:1.20.6-R0.1-SNAPSHOT'
+    implementation project(':paper-api')
     implementation('net.citizensnpcs:citizens-main:2.0.35-SNAPSHOT') {
         exclude group: '*', module: '*'
     }

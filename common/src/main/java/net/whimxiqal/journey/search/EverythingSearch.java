@@ -34,6 +34,7 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import net.kyori.adventure.audience.Audience;
+import net.kyori.adventure.key.Key;
 import net.whimxiqal.journey.Cell;
 import net.whimxiqal.journey.Journey;
 import net.whimxiqal.journey.JourneyAgent;
@@ -44,7 +45,7 @@ import net.whimxiqal.journey.util.SimpleTimer;
 
 public class EverythingSearch extends SearchSession {
 
-  private static final int LOG_PERIOD_MS = 1000;  // 5 seconds
+  private static final int LOG_PERIOD_MS = 1000; // 5 seconds
   private final LinkedList<DestinationPathTrial> pathTrials = new LinkedList<>();
   private final SimpleTimer logTimer = new SimpleTimer();
   private final AtomicReference<Double> totalLengthToCalculate = new AtomicReference<>(0.0);
@@ -54,10 +55,10 @@ public class EverythingSearch extends SearchSession {
   public EverythingSearch(UUID caller, Caller callerType) {
     super(caller, callerType, new EverythingSearchAgent(caller));
     flags.addFlag(Flags.TIMEOUT, -1); // no timeout
-    flags.addFlag(Flags.FLY, false);  // no flying for cached paths
-    flags.addFlag(Flags.ANIMATE, 0);  // don't animate
-    flags.addFlag(Flags.DIG, false);  // don't dig
-    flags.addFlag(Flags.DOOR, true);  // allow going through doors
+    flags.addFlag(Flags.FLY, false); // no flying for cached paths
+    flags.addFlag(Flags.ANIMATE, 0); // don't animate
+    flags.addFlag(Flags.DIG, false); // don't dig
+    flags.addFlag(Flags.DOOR, true); // allow going through doors
   }
 
   @Override
@@ -72,40 +73,36 @@ public class EverythingSearch extends SearchSession {
     super.timer.start();
     logTimer.start();
 
-    final Set<Integer> allDomains = new HashSet<>();
-    final Map<Integer, List<Tunnel>> tunnelsByOriginDomain = new HashMap<>();
-    final Map<Integer, List<Tunnel>> tunnelsByDestinationDomain = new HashMap<>();
+    final Set<Key> allDomains = new HashSet<>();
+    final Map<Key, List<Tunnel>> tunnelsByOriginDomain = new HashMap<>();
+    final Map<Key, List<Tunnel>> tunnelsByDestinationDomain = new HashMap<>();
 
     for (Tunnel tunnel : tunnels()) {
-      allDomains.add(tunnel.origin().domain());
-      allDomains.add(tunnel.destination().domain());
+      allDomains.add(tunnel.entrance().domain());
+      allDomains.add(tunnel.exit().domain());
     }
 
     // Prepare tunnel maps
-    for (Integer domain : allDomains) {
+    for (Key domain : allDomains) {
       tunnelsByOriginDomain.put(domain, new LinkedList<>());
       tunnelsByDestinationDomain.put(domain, new LinkedList<>());
     }
 
     // Fill tunnel maps
     for (Tunnel tunnel : tunnels()) {
-      tunnelsByOriginDomain.get(tunnel.origin().domain()).add(tunnel);
-      tunnelsByDestinationDomain.get(tunnel.destination().domain()).add(tunnel);
+      tunnelsByOriginDomain.get(tunnel.entrance().domain()).add(tunnel);
+      tunnelsByDestinationDomain.get(tunnel.exit().domain()).add(tunnel);
     }
 
     // Collect path trials
     Set<ModeType> modeTypes = modes().stream().map(Mode::type).collect(Collectors.toSet());
-    for (Integer domain : allDomains) {
+    for (Key domain : allDomains) {
       for (Tunnel pathTrialOriginTunnel : tunnelsByDestinationDomain.get(domain)) {
         for (Tunnel pathTrialDestinationTunnel : tunnelsByOriginDomain.get(domain)) {
-          if (!Journey.get().proxy().dataManager()
-              .pathRecordManager()
-              .containsRecord(pathTrialOriginTunnel.destination(), pathTrialDestinationTunnel.origin(), modeTypes)) {
-            DestinationPathTrial pathTrial = DestinationPathTrial.approximate(this, pathTrialOriginTunnel.destination(), pathTrialDestinationTunnel.origin(),
-                modes(), true);
-            pathTrials.add(pathTrial);
-            totalLengthToCalculate.set(totalLengthToCalculate.get() + pathTrial.getLength());
-          }
+          DestinationPathTrial pathTrial = DestinationPathTrial.approximate(this,
+              pathTrialOriginTunnel.exit(), pathTrialDestinationTunnel.entrance(), modes(), true);
+          pathTrials.add(pathTrial);
+          totalLengthToCalculate.set(totalLengthToCalculate.get() + pathTrial.getLength());
         }
       }
     }
@@ -139,7 +136,10 @@ public class EverythingSearch extends SearchSession {
 
       if (logTimer.elapsed() > LOG_PERIOD_MS) {
         logTimer.start(); // restart timer
-        Journey.logger().info("Caching paths: " + String.format("%.2f", length / Math.max(totalLengthToCalculate.get(), 1) * 100) + " % complete");
+        Journey.logger()
+            .info("Caching paths: "
+                + String.format("%.2f", length / Math.max(totalLengthToCalculate.get(), 1) * 100)
+                + " % complete");
       }
 
       pathTrialsCompleted++;
@@ -153,10 +153,8 @@ public class EverythingSearch extends SearchSession {
 
   @Override
   public String toString() {
-    return "[Everything Search] {session: " + uuid
-        + ", caller: (" + callerType + ") " + callerId
-        + ", state: " + state.get()
-        + '}';
+    return "[Everything Search] {session: " + uuid + ", caller: (" + callerType + ") " + callerId
+        + ", state: " + state.get() + '}';
   }
 
   private record EverythingSearchAgent(UUID caller) implements JourneyAgent {
@@ -173,7 +171,7 @@ public class EverythingSearch extends SearchSession {
 
     @Override
     public boolean hasPermission(String permission) {
-      return true;  // This agent has every permission
+      return true; // This agent has every permission
     }
 
     @Override
@@ -183,17 +181,9 @@ public class EverythingSearch extends SearchSession {
 
     @Override
     public Set<ModeType> modeCapabilities() {
-      return Set.of(
-          ModeType.WALK,
-          ModeType.JUMP,
-          ModeType.SWIM,
-          //          ModeType.FLY,  Don't need the fly mode because we disallow it in flags anyway
-          ModeType.BOAT,
-          ModeType.DOOR,
-          ModeType.CLIMB,
-          ModeType.DIG,
-          ModeType.TUNNEL
-      );
+      return Set.of(ModeType.WALK, ModeType.JUMP, ModeType.SWIM,
+          // ModeType.FLY, Don't need the fly mode because we disallow it in flags anyway
+          ModeType.BOAT, ModeType.DOOR, ModeType.CLIMB, ModeType.DIG, ModeType.TUNNEL);
     }
   }
 }

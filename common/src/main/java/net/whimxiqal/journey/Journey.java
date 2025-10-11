@@ -31,14 +31,12 @@ import net.whimxiqal.journey.data.DataVersion;
 import net.whimxiqal.journey.data.cache.CachedDataProvider;
 import net.whimxiqal.journey.manager.AnimationManager;
 import net.whimxiqal.journey.manager.DistributedWorkManager;
-import net.whimxiqal.journey.manager.DomainManager;
 import net.whimxiqal.journey.manager.LocationManager;
-import net.whimxiqal.journey.message.MessageManager;
-import net.whimxiqal.journey.navigation.NavigationManager;
-import net.whimxiqal.journey.manager.NetherManager;
 import net.whimxiqal.journey.manager.PlayerManager;
 import net.whimxiqal.journey.manager.SearchManager;
 import net.whimxiqal.journey.manager.TunnelManager;
+import net.whimxiqal.journey.message.MessageManager;
+import net.whimxiqal.journey.navigation.NavigationManager;
 import net.whimxiqal.journey.scope.ScopeManager;
 import net.whimxiqal.journey.stats.StatsManager;
 import net.whimxiqal.journey.util.BStatsUtil;
@@ -50,14 +48,12 @@ public final class Journey {
   private static Journey instance;
   private final ConfigManager configManager = new ConfigManager();
   private final PlayerManager playerManager = new PlayerManager();
-  private final NetherManager netherManager = new NetherManager();
   private final SearchManager searchManager = new SearchManager();
   private final NavigationManager navigationManager = new NavigationManager();
   private final LocationManager locationManager = new LocationManager();
   private final ScopeManager scopeManager = new ScopeManager();
   private final TunnelManager tunnelManager = new TunnelManager();
   private final StatsManager statsManager = new StatsManager();
-  private final DomainManager domainManager = new DomainManager();
   private final CentralChunkCache centralChunkCache = new CentralChunkCache();
   private final AnimationManager animationManager = new AnimationManager();
   private final CachedDataProvider cachedDataProvider = new CachedDataProvider();
@@ -102,7 +98,6 @@ public final class Journey {
   }
 
   public boolean init() {
-    JourneyApiSupplier.set(new JourneyApiImpl());
 
     // load settings first
     try {
@@ -115,7 +110,6 @@ public final class Journey {
 
     messageManager.initialize();
     proxy.initialize();
-    netherManager.initialize();
     navigationManager.initialize();
     locationManager.initialize();
     scopeManager.initialize();
@@ -126,7 +120,8 @@ public final class Journey {
     cachedDataProvider.initialize();
 
     if (proxy.dataManager().version() != DataVersion.latest()) {
-      logger().error("There is an error in your database configuration. Please delete all Journey database files and tables and restart");
+      logger().error(
+          "There is an error in your database configuration. Please delete all Journey database files and tables and restart");
       return false;
     }
 
@@ -135,7 +130,7 @@ public final class Journey {
   }
 
   public void shutdown() {
-    logger().setImmediateSubmit(true);
+    logger().shutdown();
     // shutdown cache first so any executing searches can continue with the completed chunks requests
     centralChunkCache.shutdown();
 
@@ -155,46 +150,31 @@ public final class Journey {
   }
 
   public PlayerManager playerManager() {
-    assertSynchronous();
     return playerManager;
   }
 
-  public NetherManager netherManager() {
-    assertSynchronous();
-    return netherManager;
-  }
-
   public SearchManager searchManager() {
-    assertSynchronous();
     return searchManager;
   }
 
   public NavigationManager navigatorManager() {
-    assertSynchronous();
     return navigationManager;
   }
 
   public LocationManager locationManager() {
-    assertSynchronous();
     return locationManager;
   }
 
   public ScopeManager scopeManager() {
-    assertSynchronous();
     return scopeManager;
   }
 
   public TunnelManager tunnelManager() {
-    assertSynchronous();
     return tunnelManager;
   }
 
   public StatsManager statsManager() {
     return statsManager;
-  }
-
-  public DomainManager domainManager() {
-    return domainManager;
   }
 
   public CentralChunkCache centralChunkCache() {
@@ -204,6 +184,7 @@ public final class Journey {
   public AnimationManager animationManager() {
     return animationManager;
   }
+
   public CachedDataProvider cachedDataProvider() {
     return cachedDataProvider;
   }
@@ -214,12 +195,6 @@ public final class Journey {
 
   public DistributedWorkManager workManager() {
     return workManager;
-  }
-
-  private void assertSynchronous() {
-    if (!proxy.schedulingManager().isMainThread()) {
-      Journey.logger().warn("This may only be called on the main server thread, but was called on thread: " + Thread.currentThread().getName());
-    }
   }
 
 }

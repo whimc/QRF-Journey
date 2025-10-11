@@ -30,6 +30,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Predicate;
+import net.kyori.adventure.key.Key;
 import net.whimxiqal.journey.Cell;
 import net.whimxiqal.journey.Tunnel;
 import net.whimxiqal.journey.chunk.BlockProvider;
@@ -80,9 +81,9 @@ public class Path implements Serializable {
     return new Path(null, new ArrayList<>(), Double.MAX_VALUE);
   }
 
-  public static Path fromTunnel(Tunnel tunnel) {
-    return new Path(tunnel.origin(), Collections.singletonList(new Step(tunnel.destination(), 0, ModeType.TUNNEL, tunnel::prompt)),
-        tunnel.cost(), tunnel::prompt, tunnel::testCompletion);
+  public static Path fromTunnel(Tunnel tunnel, Cell origin) {
+    return new Path(origin, Collections.singletonList(new Step(tunnel.exit(), 0, ModeType.TUNNEL, tunnel::prompt)),
+        tunnel.cost(), tunnel::prompt, cell -> tunnel.exit().equals(cell));
   }
 
   public static Path stationary(Cell location) {
@@ -172,7 +173,7 @@ public class Path implements Serializable {
    *
    * @return the domain
    */
-  public int domain() {
+  public Key domain() {
     return getDestination().domain();
   }
 

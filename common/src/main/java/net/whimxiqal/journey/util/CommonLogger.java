@@ -24,8 +24,8 @@
 package net.whimxiqal.journey.util;
 
 import java.util.Queue;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import net.whimxiqal.journey.Journey;
 
@@ -37,8 +37,7 @@ public abstract class CommonLogger {
   private static final int MAX_LOGS_PER_TICK = 100;
   private final Queue<Message> messageQueue = new ConcurrentLinkedQueue<>();
   private final AtomicReference<LogLevel> logLevel = new AtomicReference<>(LogLevel.INFO);
-  private UUID messageTaskId;
-  private boolean immediateSubmit = false;
+  private AtomicBoolean immediateSubmit = new AtomicBoolean();
 
   abstract protected void submit(Message message);
 
@@ -86,7 +85,7 @@ public abstract class CommonLogger {
     if (type.level <= logLevel.get().level) {
       // only queue this log if the level is below our allowed log level
       Message msg = new Message(type, message);
-      if (immediateSubmit) {
+      if (immediateSubmit.get()) {
         submit(msg);
       } else {
         messageQueue.add(msg);
@@ -95,18 +94,12 @@ public abstract class CommonLogger {
   }
 
   public void initialize() {
-    messageTaskId = Journey.get().proxy().schedulingManager().scheduleRepeat(this::flush, false, 1);
+    Journey.get().proxy().schedulingManager().scheduleRepeatAsync(this::flush, 1);
   }
 
   public void shutdown() {
-    if (messageTaskId != null) {
-      Journey.get().proxy().schedulingManager().cancelTask(messageTaskId);
-    }
     flush();
-  }
-
-  public void setImmediateSubmit(boolean immediateSubmit) {
-    this.immediateSubmit = immediateSubmit;
+    this.immediateSubmit.set(true);
   }
 
   public void flush() {
@@ -115,7 +108,8 @@ public abstract class CommonLogger {
       submit(messageQueue.remove());
       count++;
       if (count > MAX_LOGS_PER_TICK) {
-        submit(new Message(LogLevel.WARNING, String.format("[Logger] Truncated %d logs", messageQueue.size())));
+        submit(
+            new Message(LogLevel.WARNING, String.format("[Logger] Truncated %d logs", messageQueue.size())));
         messageQueue.clear();
         break;
       }
@@ -123,10 +117,7 @@ public abstract class CommonLogger {
   }
 
   public enum LogLevel {
-    SEVERE("SEVER", 0),
-    WARNING("WARN ", 1),
-    INFO("INFO ", 2),
-    DEBUG("DEBUG", 3);
+    SEVERE("SEVER", 0), WARNING("WARN ", 1), INFO("INFO ", 2), DEBUG("DEBUG", 3);
 
     private final String label;
     private final int level;

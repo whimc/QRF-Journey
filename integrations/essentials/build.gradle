@@ -19,8 +19,11 @@ repositories {
 
 dependencies {
     implementation project(':api')
-    implementation project(':bukkit-api')
-    implementation 'io.papermc.paper:paper-api:1.20.6-R0.1-SNAPSHOT'
-    implementation 'net.essentialsx:EssentialsX:2.20.1'
-    implementation 'net.essentialsx:EssentialsXSpawn:2.20.1'
+    implementation project(':paper-api')
+    implementation('net.essentialsx:EssentialsX:2.20.1') {
+        exclude group: "org.spigotmc", module: "spigot-api"
+    }
+    implementation('net.essentialsx:EssentialsXSpawn:2.20.1') {
+        exclude group: "org.spigotmc", module: "spigot-api"
+    }
 }

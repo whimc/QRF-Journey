@@ -31,34 +31,28 @@ public class SimpleTimer {
   /**
    * Start or re-start the timer.
    */
-  public void start() {
-    synchronized (this) {
-      startTime = System.currentTimeMillis();
-      stopTime = -1;
-    }
+  public synchronized void start() {
+    startTime = System.currentTimeMillis();
+    stopTime = -1;
   }
 
   /**
    * Stop the timer, so the current elapsed time is saved.
    */
-  public void stop() {
-    synchronized (this) {
-      stopTime = System.currentTimeMillis();
-    }
+  public synchronized void stop() {
+    stopTime = System.currentTimeMillis();
   }
 
-  public long elapsed() {
-    synchronized (this) {
-      if (startTime < 0) {
-        // not yet started
-        return -1;
-      }
-      long now = System.currentTimeMillis();
-      if (stopTime < startTime) {
-        return now - startTime;
-      }
-      return stopTime - startTime;
+  public synchronized long elapsed() {
+    if (startTime < 0) {
+      // not yet started
+      return -1;
     }
+    long now = System.currentTimeMillis();
+    if (stopTime < startTime) {
+      return now - startTime;
+    }
+    return stopTime - startTime;
   }
 
 }

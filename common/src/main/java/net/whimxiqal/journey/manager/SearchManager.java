@@ -66,21 +66,17 @@ public final class SearchManager {
   private final Map<UUID, FlagSet> flagPreferences = new HashMap<>();
 
   /**
-   * Start searching with the given search session, and register it with this manager to enforce
-   * that no more than one session is executing per player and also to store the {@link Navigator}
-   * if it completes successfully.
+   * Start searching with the given search session, and register it with this manager to enforce that no more than one
+   * session is executing per player and also to store the {@link Navigator} if it completes successfully.
    *
    * @param session the session
    * @return the future for the result
    */
   public Future<SearchSession.Result> launchIngameSearch(SearchSession session) {
     CompletableFuture<SearchSession.Result> future = new CompletableFuture<>();
-    if (!Journey.get().proxy().schedulingManager().isMainThread()) {
-      throw new RuntimeException();  // programmer error: this must be called on main thread
-    }
     UUID caller = session.getCallerId();
     if (caller == null) {
-      future.complete(null);  // never ran search
+      future.complete(null); // never ran search
       return future;
     }
 
@@ -91,11 +87,11 @@ public final class SearchManager {
       QueuedSearch existingQueuedSearch = nextPlayerSearches.get(caller);
       if (existingQueuedSearch != null) {
         // there was already a next session scheduled, lets get rid of it
-        existingQueuedSearch.future.complete(null);  // null because the search never actually ran
+        existingQueuedSearch.future.complete(null); // null because the search never actually ran
       }
-      nextPlayerSearches.put(caller, new QueuedSearch(session, future));  // schedule
+      nextPlayerSearches.put(caller, new QueuedSearch(session, future)); // schedule
       Journey.logger().debug(existingSession + ": another search was requested, so canceling this one");
-      existingSession.stop(true);  // cancel existing
+      existingSession.stop(true); // cancel existing
       return future;
     }
 
@@ -105,19 +101,21 @@ public final class SearchManager {
   }
 
   /**
-   * A helper method that may be called again for the purposes of re-queueing the request
-   * if another search is still executing, and we must wait for it to stop
+   * A helper method that may be called again for the purposes of re-queueing the request if another search is still
+   * executing, and we must wait for it to stop
    *
    * @param session the session we wish to run
    */
   private void doLaunchSearch(SearchSession session, CompletableFuture<SearchSession.Result> future) {
     Statistics.SEARCHES.add(1);
-    UUID caller = Objects.requireNonNull(session.getCallerId());  // launches here in the search manager must have caller ids
+    UUID caller = Objects.requireNonNull(session.getCallerId()); // launches here in the search manager must have caller
+                                                                 // ids
     playerSearches.put(caller, session);
 
+    // TODO getting audience potentially off global region thread? fix
     Audience audience = switch (session.getCallerType()) {
-      case PLAYER -> Journey.get().proxy().audienceProvider().player(caller);
-      case CONSOLE -> Journey.get().proxy().audienceProvider().console();
+      case PLAYER -> Journey.get().proxy().playerAudience(caller);
+      case CONSOLE -> Journey.get().proxy().consoleAudience();
       default -> Audience.empty();
     };
 
@@ -125,20 +123,21 @@ public final class SearchManager {
       session.initialize();
     } catch (Exception e) {
       // the initialize function can cause unknown errors because it uses registered functions from the API,
-      //  so we want to handle other dev's bugs gracefully
+      // so we want to handle other dev's bugs gracefully
       Messages.COMMAND_INTERNAL_ERROR.sendTo(audience, Formatter.ERROR);
       e.printStackTrace();
       playerSearches.remove(caller);
       return;
     }
 
-    AtomicReference<TextComponent> hoverText = new AtomicReference<>(Component.text("Search Parameters").color(Formatter.THEME));
-    Flags.ALL_FLAGS.forEach(flag -> hoverText.set(hoverText.get()
-        .append(Component.newline())
+    AtomicReference<TextComponent> hoverText = new AtomicReference<>(
+        Component.text("Search Parameters").color(Formatter.THEME));
+    Flags.ALL_FLAGS.forEach(flag -> hoverText.set(hoverText.get().append(Component.newline())
         .append(Component.text(flag.name() + ": ").color(Formatter.DARK))
         .append(Component.text(session.flags().printValueFor(flag)).color(Formatter.GOLD))));
 
-    audience.sendMessage(Formatter.hover(Messages.COMMAND_SEARCH_SEARCHING.resolve(Formatter.INFO), hoverText.get()));
+    audience.sendMessage(
+        Formatter.hover(Messages.COMMAND_SEARCH_SEARCHING.resolve(Formatter.INFO), hoverText.get()));
 
     session.search().thenAccept(result -> {
       if (result == null) {
@@ -148,59 +147,54 @@ public final class SearchManager {
       }
 
       Journey.logger().debug(session + ": search complete");
-      // schedule the completion logic back on the main thread
-      Journey.get().proxy().schedulingManager().schedule(() -> {
-        switch (result.state()) {
-          case STOPPED_SUCCESSFUL -> {
-            Itinerary itinerary = result.itinerary();
-            if (itinerary != null) {
-              audience.sendMessage((Messages.COMMAND_SEARCH_SUCCESS.resolve(Formatter.SUCCESS))
-                  .append(Component.space())
-                  .append(Component.text("[").color(Formatter.DARK)
-                      .append(Component.text("stats").color(Formatter.DULL).decorate(TextDecoration.ITALIC))
-                      .append(Component.text("]").color(Formatter.DARK))
-                      .hoverEvent(HoverEvent.hoverEvent(HoverEvent.Action.SHOW_TEXT,
-                          Component.text()
-                              .append(Component.text("Search Statistics").color(Formatter.THEME).decorate(TextDecoration.BOLD))
-                              .append(Component.newline())
-                              .append(Component.text("Walk Time: ")
-                                  .color(Formatter.DULL)
-                                  .append(Component.text(TimeUtil.toSimpleTime(Math.round(itinerary.cost() / 5.621 /* Steve's running speed. */)))
-                                      .color(Formatter.ACCENT)))
-                              .append(Component.newline())
-                              .append(Component.text("Distance: ")
-                                  .color(Formatter.DULL)
-                                  .append(Component.text(Math.round(itinerary.cost()) + " blocks")
-                                      .color(Formatter.ACCENT)))
-                              .append(Component.newline())
-                              .append(Component.text("Search Time: ")
-                                  .color(Formatter.DULL)
-                                  .append(Component.text(TimeUtil.toSimpleTime(
-                                          Math.round((double) session.executionTime() / 1000)))
-                                      .color(Formatter.ACCENT)))
-                              .build()))));
+      switch (result.state()) {
+        case STOPPED_SUCCESSFUL -> {
+          Itinerary itinerary = result.itinerary();
+          if (itinerary != null) {
+            audience.sendMessage((Messages.COMMAND_SEARCH_SUCCESS.resolve(Formatter.SUCCESS))
+                .append(Component.space())
+                .append(Component.text("[").color(Formatter.DARK)
+                    .append(Component.text("stats").color(Formatter.DULL).decorate(TextDecoration.ITALIC))
+                    .append(Component.text("]").color(Formatter.DARK))
+                    .hoverEvent(HoverEvent.hoverEvent(HoverEvent.Action.SHOW_TEXT, Component.text()
+                        .append(Component
+                            .text("Search Statistics").color(Formatter.THEME).decorate(TextDecoration.BOLD))
+                        .append(Component.newline())
+                        .append(Component.text("Walk Time: ").color(Formatter.DULL)
+                            .append(Component
+                                .text(TimeUtil.toSimpleTime(
+                                    Math.round(itinerary.cost() / 5.621 /* Steve's running speed. */)))
+                                .color(Formatter.ACCENT)))
+                        .append(Component.newline())
+                        .append(Component.text("Distance: ").color(Formatter.DULL).append(
+                            Component.text(Math.round(itinerary.cost()) + " blocks").color(Formatter.ACCENT)))
+                        .append(Component.newline())
+                        .append(Component.text("Search Time: ").color(Formatter.DULL).append(Component
+                            .text(TimeUtil.toSimpleTime(Math.round((double) session.executionTime() / 1000)))
+                            .color(Formatter.ACCENT)))
+                        .build()))));
 
-              Journey.get().navigatorManager().stopNavigators(session.agent().uuid());
-              Journey.get().navigatorManager().startNavigating(session.agent(), itinerary.steps(), session.flags().getValueFor(Flags.NAVIGATOR));
-            } else {
-              // itinerary is null, so we have no Navigator to start
-              Messages.COMMAND_SEARCH_SUCCESS.sendTo(audience, Formatter.SUCCESS);
-            }
+            Journey.get().navigatorManager().stopNavigators(session.agent().uuid());
+            Journey.get().navigatorManager().startNavigating(session.agent(), itinerary.steps(),
+                session.flags().getValueFor(Flags.NAVIGATOR));
+          } else {
+            // itinerary is null, so we have no Navigator to start
+            Messages.COMMAND_SEARCH_SUCCESS.sendTo(audience, Formatter.SUCCESS);
           }
-          case STOPPED_CANCELED -> Messages.COMMAND_SEARCH_CANCELED.sendTo(audience, Formatter.ERROR);
-          case STOPPED_FAILED -> Messages.COMMAND_SEARCH_FAILED.sendTo(audience, Formatter.WARN);
-          case STOPPED_ERROR -> Messages.COMMAND_SEARCH_ERROR.sendTo(audience, Formatter.ERROR);
-          default -> throw new RuntimeException();  // programmer error, should never finish the search with this state
         }
+        case STOPPED_CANCELED -> Messages.COMMAND_SEARCH_CANCELED.sendTo(audience, Formatter.ERROR);
+        case STOPPED_FAILED -> Messages.COMMAND_SEARCH_FAILED.sendTo(audience, Formatter.WARN);
+        case STOPPED_ERROR -> Messages.COMMAND_SEARCH_ERROR.sendTo(audience, Formatter.ERROR);
+        default -> throw new RuntimeException(); // programmer error, should never finish the search with this state
+      }
 
-        // run next search, if there is another one queued
-        playerSearches.remove(caller);
-        if (nextPlayerSearches.containsKey(caller)) {
-          QueuedSearch newSession = nextPlayerSearches.remove(caller);
-          doLaunchSearch(newSession.session, newSession.future);
-        }
-        future.complete(result);
-      }, false);
+      // run next search, if there is another one queued
+      playerSearches.remove(caller);
+      if (nextPlayerSearches.containsKey(caller)) {
+        QueuedSearch newSession = nextPlayerSearches.remove(caller);
+        doLaunchSearch(newSession.session, newSession.future);
+      }
+      future.complete(result);
     });
   }
 
@@ -215,9 +209,9 @@ public final class SearchManager {
   }
 
   /**
-   * Get the caller's flag preferences. If "persistent" is set, then the returned flag set will be stored
-   * in memory for future retrieval. If the flag set is just used for reading, don't set "persistent" so that
-   * it needn't be saved in memory. Must be called on main thread.
+   * Get the caller's flag preferences. If "persistent" is set, then the returned flag set will be stored in memory for
+   * future retrieval. If the flag set is just used for reading, don't set "persistent" so that it needn't be saved in
+   * memory. Must be called on main thread.
    *
    * @param callerId   the caller
    * @param persistent whether to keep the returned flag set in memory or not, so that edits affect the stored set
@@ -233,7 +227,7 @@ public final class SearchManager {
       return flagSet;
     }
     if (flagSet.isEmpty() && !persistent) {
-      flagPreferences.remove(callerId);  // don't need this, clean up memory
+      flagPreferences.remove(callerId); // don't need this, clean up memory
     }
     return flagSet;
   }

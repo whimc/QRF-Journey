@@ -1,0 +1,22 @@
+plugins {
+    id 'java-library'
+    id 'journey.java-conventions'
+    id 'journey-api-conventions' apply false
+}
+
+configure(journeyApiExtension) {
+    apiName = 'Journey Bukkit API'
+    apiDescription = 'The Bukkit API for Journey'
+    artifactId = 'bukkit-api'
+}
+
+apply plugin: 'journey-api-conventions'
+
+repositories {
+    maven { url 'https://repo.papermc.io/repository/maven-public/' }
+}
+
+dependencies {
+    implementation project(':api')
+    api 'dev.folia:folia-api:1.21.8-R0.1-SNAPSHOT'
+}

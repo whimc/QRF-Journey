@@ -32,8 +32,10 @@ import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.whimxiqal.journey.Cell;
+import net.whimxiqal.journey.CellBox;
 import net.whimxiqal.journey.Journey;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * A utility class to store static fields and methods pertaining to
@@ -42,41 +44,35 @@ import org.jetbrains.annotations.NotNull;
  */
 public final class Formatter {
 
-  public static final TextColor ACCENT = TextColor.color(20, 166, 219);  // #14A6DB
+  public static final TextColor ACCENT = TextColor.color(20, 166, 219); // #14A6DB
   public static final TextColor DARK = TextColor.color(64, 64, 64);
   public static final TextColor DULL = TextColor.color(179, 179, 179);
   public static final TextColor ERROR = TextColor.color(194, 56, 60);
   public static final TextColor GOLD = TextColor.color(222, 185, 0);
   public static final TextColor INFO = TextColor.color(255, 191, 245);
-  //  public static final TextColor DEBUG = TextColor.color(128, 255, 233);
+  // public static final TextColor DEBUG = TextColor.color(128, 255, 233);
   public static final TextColor SUCCESS = TextColor.color(11, 181, 38);
-  public static final TextColor THEME = TextColor.color(172, 21, 219);  // #AC15DB
+  public static final TextColor THEME = TextColor.color(172, 21, 219); // #AC15DB
   public static final TextColor URL = TextColor.color(66, 105, 224);
   public static final TextColor WARN = TextColor.color(255, 157, 10);
 
   public static Component welcome() {
-    return Component.text()
-        .append(Component.newline())
+    return Component.text().append(Component.newline())
         .append(Component.text("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%").color(DULL))
-        .append(Component.newline())
-        .append(Component.text("   ✳ ").color(THEME))
+        .append(Component.newline()).append(Component.text("   ✳ ").color(THEME))
         .append(Component.text("Journey").color(THEME).decorate(TextDecoration.UNDERLINED))
-        .append(Component.text(" (v" + Journey.get().proxy().version() + ")").color(DARK))
-        .append(Component.text(" ✳").color(THEME))
-        .append(Component.newline())
-        .append(Component.text("      by ").color(DULL))
-        .append(Component.text("whimxiqal").color(ACCENT))
-        .append(Component.newline())
-        .append(Component.newline())
+        .append(Component.text(" (" + Journey.get().proxy().version() + ")").color(DARK))
+        .append(Component.text(" ✳").color(THEME)).append(Component.newline())
+        .append(Component.text("      by ").color(DULL)).append(Component.text("whimxiqal").color(ACCENT))
+        .append(Component.newline()).append(Component.newline())
         .append(Component.text("   Wiki >      ").color(INFO))
         .append(url("journey.whimxiqal.net", "https://journey.whimxiqal.net").decorate(TextDecoration.ITALIC))
-        .append(Component.newline())
-        .append(Component.text("   Source > ").color(INFO))
-        .append(url("github.com/whimxiqal/journey", "https://github.com/whimxiqal/journey").decorate(TextDecoration.ITALIC))
+        .append(Component.newline()).append(Component.text("   Source > ").color(INFO))
+        .append(url("github.com/whimxiqal/journey", "https://github.com/whimxiqal/journey")
+            .decorate(TextDecoration.ITALIC))
         .append(Component.newline())
         .append(Component.text("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%").color(DULL))
-        .append(Component.newline())
-        .build();
+        .append(Component.newline()).build();
   }
 
   /**
@@ -86,11 +82,8 @@ public final class Formatter {
    * @return the text component
    */
   public static Component prefix() {
-    return Component.text()
-        .append(Component.text("[").color(DARK))
-        .append(Component.text("✳").color(THEME))
-        .append(Component.text("] ").color(DARK))
-        .build();
+    return Component.text().append(Component.text("[").color(DARK)).append(Component.text("✳").color(THEME))
+        .append(Component.text("] ").color(DARK)).build();
   }
 
   public static Component accent(String message) {
@@ -116,25 +109,26 @@ public final class Formatter {
       textBuilder.clickEvent(ClickEvent.openUrl(new URL(url)));
     } catch (MalformedURLException ex) {
       textBuilder.clickEvent(ClickEvent.suggestCommand(url));
-      Journey.logger().error("A url was not formed correctly for a"
-          + " click action: " + url);
+      Journey.logger().error("A url was not formed correctly for a" + " click action: " + url);
     }
 
     return textBuilder.build();
   }
 
-  public static Component cell(Cell cell) {
-    return Component.text()
-        .append(Component.text("[x: ").color(DULL))
-        .append(Component.text(cell.blockX()).color(ACCENT))
-        .append(Component.text(", y: ").color(DULL))
-        .append(Component.text(cell.blockY()).color(ACCENT))
-        .append(Component.text(", z: ").color(DULL))
-        .append(Component.text(cell.blockZ()).color(ACCENT))
-        .append(Component.text("] (").color(DULL))
-        .append(Component.text(Journey.get().proxy().platform().domainName(cell.domain())).color(ACCENT))
-        .append(Component.text(")").color(DULL))
-        .build();
+  public static Component cell(@Nullable Cell cell) {
+    if (cell == null) {
+      return Component.text("null").color(DULL);
+    }
+    return Component.text().append(Component.text("[x: ").color(DULL))
+        .append(Component.text(cell.blockX()).color(ACCENT)).append(Component.text(", y: ").color(DULL))
+        .append(Component.text(cell.blockY()).color(ACCENT)).append(Component.text(", z: ").color(DULL))
+        .append(Component.text(cell.blockZ()).color(ACCENT)).append(Component.text("] (").color(DULL))
+        .append(Component.text(cell.domain().asString()).color(ACCENT))
+        .append(Component.text(")").color(DULL)).build();
+  }
+
+  public static Component box(@NotNull CellBox box) {
+    return cell(box.min()).append(Component.text(" - ")).append(cell(box.max()));
   }
 
 }

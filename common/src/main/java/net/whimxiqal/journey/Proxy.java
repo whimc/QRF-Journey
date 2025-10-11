@@ -24,7 +24,8 @@
 package net.whimxiqal.journey;
 
 import java.nio.file.Path;
-import net.kyori.adventure.platform.AudienceProvider;
+import java.util.UUID;
+import net.kyori.adventure.audience.Audience;
 import net.whimxiqal.journey.data.DataManager;
 import net.whimxiqal.journey.manager.SchedulingManager;
 import net.whimxiqal.journey.navigation.PlatformProxy;
@@ -36,9 +37,12 @@ public interface Proxy {
 
   Path dataFolder();
 
-  AudienceProvider audienceProvider();
+  Audience playerAudience(UUID player);
+
+  Audience consoleAudience();
 
   Path configPath();
+
   Path messagesConfigPath();
 
   SchedulingManager schedulingManager();
@@ -57,9 +61,6 @@ public interface Proxy {
   }
 
   default void shutdown() {
-    logger().shutdown();
-    audienceProvider().close();
-
     // shutdown scheduling manager last because most init/shutdown scripts need it
     schedulingManager().shutdown();
   }

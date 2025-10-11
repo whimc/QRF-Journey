@@ -25,43 +25,36 @@ package net.whimxiqal.journey.data;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
+import net.whimxiqal.journey.BoxTargetTunnel;
 import net.whimxiqal.journey.Cell;
+import net.whimxiqal.journey.CellBox;
 import net.whimxiqal.journey.Tunnel;
 
 public class TestTunnelDataManager implements TunnelDataManager {
 
   @Override
-  public void addTunnel(Cell origin, Cell destination, double cost, TunnelType type) {
-    // ignore
+  public void addTunnel(CellBox entrance, Cell exit, TunnelType type) {
+
   }
 
   @Override
-  public Collection<Tunnel> getTunnelsWithOrigin(Cell origin, TunnelType type) {
-    return Collections.emptyList();
+  public Collection<BoxTargetTunnel> getAllTunnels(TunnelType type) {
+    return List.of();
   }
 
   @Override
-  public Collection<Tunnel> getTunnelsWithDestination(Cell destination, TunnelType type) {
-    return Collections.emptyList();
+  public void removeTunnelsWithOrigin(CellBox entrance, TunnelType type) {
+
   }
 
   @Override
-  public Collection<Tunnel> getAllTunnels(TunnelType type) {
-    return Collections.emptyList();
-  }
+  public void removeTunnels(CellBox entrance, Cell exit, TunnelType type) {
 
-  @Override
-  public void removeTunnelsWithOrigin(Cell origin, TunnelType type) {
-    // ignore
-  }
-
-  @Override
-  public void removeTunnels(Cell origin, Cell destination, TunnelType type) {
-    // ignore
   }
 
   @Override
   public void removeTunnels(TunnelType type) {
-    // ignore
+
   }
 }

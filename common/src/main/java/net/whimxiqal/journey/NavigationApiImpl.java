@@ -52,27 +52,20 @@ public class NavigationApiImpl implements NavigationApi {
   }
 
   @Override
-  public CompletionStage<NavigationResult> navigate(JourneyAgent agent, List<? extends SearchStep> path, NavigatorDetails navigatorDetails) {
-    if (Journey.get().proxy().schedulingManager().isMainThread()) {
-      return Journey.get().navigatorManager().startNavigating(agent, path, navigatorDetails);
-    } else {
-      CompletableFuture<NavigationResult> future = new CompletableFuture<>();
-      Journey.get().proxy().schedulingManager().schedule(() -> Journey.get()
-          .navigatorManager()
-          .startNavigating(agent, path, navigatorDetails)
-          .thenAccept(future::complete),
-          false);
-      return future;
-    }
+  public CompletionStage<NavigationResult> navigate(JourneyAgent agent, List<? extends SearchStep> path,
+      NavigatorDetails navigatorDetails) {
+    return Journey.get().navigatorManager().startNavigating(agent, path, navigatorDetails);
   }
 
   @Override
-  public CompletionStage<NavigationResult> navigatePlayer(UUID playerUuid, List<? extends SearchStep> path) throws NoSuchElementException {
+  public CompletionStage<NavigationResult> navigatePlayer(UUID playerUuid, List<? extends SearchStep> path)
+      throws NoSuchElementException {
     return navigatePlayer(playerUuid, path, NavigatorDetails.of(TrailNavigator.TRAIL_NAVIGATOR_ID));
   }
 
   @Override
-  public CompletionStage<NavigationResult> navigatePlayer(UUID playerUuid, List<? extends SearchStep> path, NavigatorDetails navigatorDetails) throws NoSuchElementException {
+  public CompletionStage<NavigationResult> navigatePlayer(UUID playerUuid, List<? extends SearchStep> path,
+      NavigatorDetails navigatorDetails) throws NoSuchElementException {
     Optional<InternalJourneyPlayer> player = Journey.get().proxy().platform().onlinePlayer(playerUuid);
     if (player.isEmpty()) {
       throw new NoSuchElementException("Player " + playerUuid + " could not be found");
@@ -92,15 +85,6 @@ public class NavigationApiImpl implements NavigationApi {
 
   @Override
   public CompletionStage<Integer> stopNavigation(UUID agentUuid) {
-    if (Journey.get().proxy().schedulingManager().isMainThread()) {
-      return CompletableFuture.completedFuture(Journey.get().navigatorManager().stopNavigators(agentUuid));
-    } else {
-      CompletableFuture<Integer> future = new CompletableFuture<>();
-      Journey.get().proxy().schedulingManager().schedule(() -> future.complete(Journey.get()
-              .navigatorManager()
-              .stopNavigators(agentUuid)),
-          false);
-      return future;
-    }
+    return CompletableFuture.completedFuture(Journey.get().navigatorManager().stopNavigators(agentUuid));
   }
 }

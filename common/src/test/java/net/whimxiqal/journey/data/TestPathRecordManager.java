@@ -23,12 +23,9 @@
 
 package net.whimxiqal.journey.data;
 
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Date;
 import java.util.Deque;
 import java.util.LinkedList;
-import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import net.whimxiqal.journey.Cell;
@@ -46,41 +43,43 @@ public class TestPathRecordManager implements PathRecordManager {
   private long pathTrialRecordId = 0;
 
   @Override
-  public void report(DestinationPathTrial trial, Set<ModeType> modeTypes, long executionTime) throws DataAccessException {
-    List<PathTrialCellRecord> cells = new LinkedList<>();
-    List<PathTrialModeRecord> modes = new LinkedList<>();
-    PathTrialRecord record = new PathTrialRecord(
-        pathTrialRecordId,
-        new Date(),
-        executionTime,
-        trial.getLength(),
-        trial.getOrigin().blockX(),
-        trial.getOrigin().blockY(),
-        trial.getOrigin().blockZ(),
-        trial.getDestination().blockX(),
-        trial.getDestination().blockY(),
-        trial.getDestination().blockZ(),
-        trial.getDomain(),
-        cells,
-        modes
-    );
-    pathTrialRecordId++;
-    synchronized (this) {
-      pathTrialRecords.add(record);
-      ArrayList<Step> steps = trial.getPath().getSteps();
-      for (int i = 0; i < steps.size(); i++) {
-        PathTrialCellRecord cellRecord = new PathTrialCellRecord(
-            record,
-            steps.get(i).location().blockX(),
-            steps.get(i).location().blockY(),
-            steps.get(i).location().blockZ(),
-            i,
-            steps.get(i).mode());
-        pathTrialCellRecords.add(cellRecord);
-        cells.add(cellRecord);
-      }
-      modeTypes.forEach(type -> modes.add(new PathTrialModeRecord(record, type)));
-    }
+  public void report(DestinationPathTrial trial, Set<ModeType> modeTypes, long executionTime)
+      throws DataAccessException {
+    throw new UnsupportedOperationException("Unimplemented");
+    // List<PathTrialCellRecord> cells = new LinkedList<>();
+    // List<PathTrialModeRecord> modes = new LinkedList<>();
+    // PathTrialRecord record = new PathTrialRecord(
+    // pathTrialRecordId,
+    // new Date(),
+    // executionTime,
+    // trial.getLength(),
+    // trial.getOrigin().blockX(),
+    // trial.getOrigin().blockY(),
+    // trial.getOrigin().blockZ(),
+    // trial.getDestination().blockX(),
+    // trial.getDestination().blockY(),
+    // trial.getDestination().blockZ(),
+    // trial.getDomain(),
+    // cells,
+    // modes
+    // );
+    // pathTrialRecordId++;
+    // synchronized (this) {
+    // pathTrialRecords.add(record);
+    // ArrayList<Step> steps = trial.getPath().getSteps();
+    // for (int i = 0; i < steps.size(); i++) {
+    // PathTrialCellRecord cellRecord = new PathTrialCellRecord(
+    // record,
+    // steps.get(i).location().blockX(),
+    // steps.get(i).location().blockY(),
+    // steps.get(i).location().blockZ(),
+    // i,
+    // steps.get(i).mode());
+    // pathTrialCellRecords.add(cellRecord);
+    // cells.add(cellRecord);
+    // }
+    // modeTypes.forEach(type -> modes.add(new PathTrialModeRecord(record, type)));
+    // }
   }
 
   @Override
@@ -101,17 +100,14 @@ public class TestPathRecordManager implements PathRecordManager {
 
   @Override
   public @Nullable PathTrialRecord getRecord(Cell origin, Cell destination, Set<ModeType> modeTypes) {
-    if (origin.domain() != destination.domain()) {
+    if (!origin.domain().equals(destination.domain())) {
       return null;
     }
-    synchronized (this) {  // synchronized so that the additions don't interfere in this loop
+    synchronized (this) { // synchronized so that the additions don't interfere in this loop
       for (PathTrialRecord record : pathTrialRecords) {
-        boolean sameLocations = record.originX() == origin.blockX()
-            && record.originY() == origin.blockY()
-            && record.originZ() == origin.blockZ()
-            && record.domain() == origin.domain()
-            && record.destinationX() == destination.blockX()
-            && record.destinationY() == destination.blockY()
+        boolean sameLocations = record.originX() == origin.blockX() && record.originY() == origin.blockY()
+            && record.originZ() == origin.blockZ() && record.domain().equals(origin.domain())
+            && record.destinationX() == destination.blockX() && record.destinationY() == destination.blockY()
             && record.destinationZ() == destination.blockZ();
         boolean modesSuperSet = true;
         for (PathTrialModeRecord mode : record.modes()) {
@@ -140,12 +136,10 @@ public class TestPathRecordManager implements PathRecordManager {
     steps.add(new Step(record.cells().get(0).toCell(), 0, record.cells().get(0).modeType()));
     for (int i = 1; i < record.cells().size(); i++) {
       Cell cell = record.cells().get(i).toCell();
-      steps.add(new Step(cell,
-          cell.distanceTo(steps.getLast().location()),
-          record.cells().get(i).modeType()));
+      steps
+          .add(new Step(cell, cell.distanceTo(steps.getLast().location()), record.cells().get(i).modeType()));
     }
-    return new Path(new Cell(record.originX(), record.originY(), record.originZ(), record.domain()),
-        steps,
+    return new Path(new Cell(record.originX(), record.originY(), record.originZ(), record.domain()), steps,
         record.pathCost());
   }
 

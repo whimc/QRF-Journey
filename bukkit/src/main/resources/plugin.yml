@@ -1,8 +1,0 @@
-name: Journey
-version: ${version}
-main: net.whimxiqal.journey.bukkit.JourneyBukkit
-api-version: 1.17
-authors:
-  - whimxiqal
-description: A GPS for Minecraft
-website: https://journey.whimxiqal.net

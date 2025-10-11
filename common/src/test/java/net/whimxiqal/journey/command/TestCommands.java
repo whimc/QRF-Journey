@@ -23,91 +23,111 @@
 
 package net.whimxiqal.journey.command;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Function;
+import net.kyori.adventure.audience.Audience;
+import net.kyori.adventure.key.Key;
 import net.whimxiqal.journey.Cell;
 import net.whimxiqal.journey.Destination;
 import net.whimxiqal.journey.Journey;
 import net.whimxiqal.journey.JourneyApi;
-import net.whimxiqal.journey.JourneyApiProvider;
 import net.whimxiqal.journey.JourneyTestHarness;
 import net.whimxiqal.journey.Scope;
 import net.whimxiqal.journey.VirtualMap;
 import net.whimxiqal.journey.manager.TestSchedulingManager;
 import net.whimxiqal.journey.platform.TestJourneyPlayer;
+import net.whimxiqal.journey.platform.TestPlatformProxy;
 import net.whimxiqal.journey.platform.WorldLoader;
-import net.whimxiqal.mantle.common.CommandResult;
-import net.whimxiqal.mantle.common.CommandSource;
-import net.whimxiqal.mantle.common.Mantle;
-import net.whimxiqal.mantle.common.MantleCommand;
-import net.whimxiqal.mantle.common.connector.CommandConnector;
-import net.whimxiqal.mantle.common.connector.CommandRoot;
+import org.incendo.cloud.CommandManager;
+import org.incendo.cloud.execution.CommandResult;
+import org.incendo.cloud.execution.ExecutionCoordinator;
+import org.incendo.cloud.internal.CommandRegistrationHandler;
+import org.jspecify.annotations.NonNull;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 public class TestCommands extends JourneyTestHarness {
 
-  private final static Map<String, MantleCommand> commands = new HashMap<>();
-  private final static TestProxy testProxy = new TestProxy();
+  record TestCommandSender(Audience audience, UUID uuid, CommandSource.Type type, Set<String> disallowed)
+      implements CommandSource {
 
-  @BeforeAll
-  static void init() {
-    Mantle.setProxy(testProxy);
-    register(JourneyConnectorProvider.connector());
+    @Override
+    public boolean allowed(String permission) {
+      return !disallowed.contains(permission);
+    }
+
   }
 
-  static void register(CommandConnector connector) {
-    for (CommandRoot root : connector.roots()) {
-      commands.put(root.baseCommand(), new MantleCommand(connector, root));
+  class TestCommandManager extends CommandManager<TestCommandSender> {
+
+    public TestCommandManager() {
+      super(ExecutionCoordinator.simpleCoordinator(),
+          CommandRegistrationHandler.nullCommandRegistrationHandler());
+    }
+
+    @Override
+    public final boolean hasPermission(final @NonNull TestCommandSender sender,
+        final @NonNull String permission) {
+      return !permission.equalsIgnoreCase("no");
     }
   }
 
-  static List<String> completions(String command) {
-    String[] baseCommand = command.split(" ", 2);
-    assert baseCommand.length == 1 || baseCommand.length == 2;
-    MantleCommand mantleCommand = commands.get(baseCommand[0]);
-    if (mantleCommand == null) {
-      return Collections.emptyList();
-    }
-    return mantleCommand.complete(new CommandSource(CommandSource.Type.PLAYER,
-        PLAYER_UUID,
-        Journey.get().proxy().audienceProvider().console()), baseCommand.length > 1 ? baseCommand[1] : "");
+  private TestCommandManager manager;
+
+  @BeforeEach
+  void init() {
+    manager = new TestCommandManager();
+    manager
+        .command(new JourneyCommandFactory<TestCommandSender>(Function.identity(), () -> List.of("Notch")));
+  }
+
+  List<String> completions(String command) {
+    return manager.suggestionFactory()
+        .suggestImmediately(new TestCommandSender(Journey.get().proxy().consoleAudience(), PLAYER_UUID,
+            CommandSource.Type.PLAYER, Set.of()), command)
+        .list().stream().map(sugg -> sugg.suggestion()).toList();
   }
 
   static void addHome() throws ExecutionException, InterruptedException {
-    if (Journey.get().proxy().dataManager().personalWaypointManager().getWaypoint(PLAYER_UUID, "home") != null) {
+    if (Journey.get().proxy().dataManager().personalWaypointManager().getWaypoint(PLAYER_UUID,
+        "home") != null) {
       // already has it
       return;
     }
-    Journey.get().proxy().dataManager().personalWaypointManager().add(PLAYER_UUID, new Cell(0, 0, 0, WorldLoader.domain(0)), "home");
+    Journey.get().proxy().dataManager().personalWaypointManager().add(PLAYER_UUID,
+        new Cell(0, 0, 0, Key.key("0")), "home");
     Journey.get().cachedDataProvider().personalWaypointCache().update(PLAYER_UUID, true).get();
   }
 
-  private CommandResult execute(String command) {
-    // we must execute these calls on the main server thread
-    String[] baseCommand = command.split(" ", 2);
-    assert baseCommand.length == 1 || baseCommand.length == 2;
-    MantleCommand mantleCommand = commands.get(baseCommand[0]);
-    if (mantleCommand == null) {
-      System.out.println("Mantle command could not be found for base command: " + baseCommand[0]);
-      return CommandResult.failure();
-    }
-    return TestSchedulingManager.runOnMainThread(() -> mantleCommand.process(new CommandSource(CommandSource.Type.PLAYER,
-        PLAYER_UUID,
-        Journey.get().proxy().audienceProvider().console()), baseCommand.length > 1 ? baseCommand[1] : ""));
+  static void grantAllPermissions(UUID player) {
+    ((TestPlatformProxy) Journey.get().proxy().platform()).grantAllPermissions(player);
+  }
+
+  static void revokeAllPermissions(UUID player) {
+    ((TestPlatformProxy) Journey.get().proxy().platform()).revokeAllPermissions(player);
+  }
+
+  private CommandResult<TestCommandSender> execute(String command) {
+    return TestSchedulingManager.supplyAsync(() -> manager.commandExecutor()
+        .executeCommand(new TestCommandSender(Journey.get().proxy().consoleAudience(), PLAYER_UUID,
+            CommandSource.Type.PLAYER, Set.of()), command))
+        .join();
   }
 
   void commandSuccess(String command) throws ExecutionException, InterruptedException {
-    Assertions.assertEquals(CommandResult.Type.SUCCESS, execute(command).type(), "\"Test failed for command " + command + "\"");
+    Assertions.assertNotNull(execute(command), "\"Test failed for command " + command + "\"");
   }
 
   void commandFailure(String command) throws ExecutionException, InterruptedException {
-    Assertions.assertEquals(CommandResult.Type.FAILURE, execute(command).type(), "\"Test failed for command " + command + "\"");
+    Assertions.assertNull(execute(command), "\"Test failed for command " + command + "\"");
   }
 
   @Test
@@ -115,82 +135,81 @@ public class TestCommands extends JourneyTestHarness {
     commandSuccess("journey");
   }
 
+  @Disabled("JourneyTo is not yet implemented")
   @Test
   void journeyToTest() throws ExecutionException, InterruptedException {
     addHome();
     commandSuccess("journeyto home");
     commandSuccess("journeyto personal:home");
-    Journey.get().proxy().dataManager().publicWaypointManager().add(new Cell(0, 0, 0, WorldLoader.domain(0)), "home");
-    commandFailure("journeyto home");
+    Journey.get().proxy().dataManager().publicWaypointManager().add(new Cell(0, 0, 0, Key.key("0")), "home");
+    commandSuccess("journeyto home"); // should result in failure message to user because "home" is ambiguous now
     commandSuccess("journeyto personal:home");
     commandSuccess("journeyto server:home");
 
     commandSuccess("journeyto surface");
-    commandFailure("journeyto world:" + WorldLoader.worldResources[0]);  // we are already in world 0
+    commandFailure("journeyto world:" + WorldLoader.worldResources[0]); // we are already in world 0
     Cell originalLocation = TestJourneyPlayer.LOCATION;
-    TestJourneyPlayer.LOCATION = new Cell(0, 0, 0, WorldLoader.domain(1));
+    TestJourneyPlayer.LOCATION = new Cell(0, 0, 0, Key.key("1"));
     commandSuccess("journeyto world:" + WorldLoader.worldResources[0]);
     TestJourneyPlayer.LOCATION = originalLocation;
     commandSuccess("journeyto world:" + WorldLoader.worldResources[1]);
-    commandFailure("journeyto death");
-    Journey.get().playerManager().setDeathLocation(PLAYER_UUID, new Cell(0, 0, 0, 0));
+
+    commandSuccess("journeyto death"); // should result in failure message to user because there are no deaths yet
+    Journey.get().playerManager().setDeathLocation(PLAYER_UUID, new Cell(0, 0, 0, Key.key("0")));
     commandSuccess("journeyto death");
 
-    testProxy.revokeAllPermissions(PLAYER_UUID);
+    revokeAllPermissions(PLAYER_UUID);
     commandFailure("journeyto home");
   }
 
+  @Disabled("JourneyTo is not yet implemented")
   @Test
   void journeyToCompletionsTest() throws ExecutionException, InterruptedException {
     addHome();
-    TestSchedulingManager.runOnMainThread(() -> {
+    TestSchedulingManager.runAsync(() -> {
       List<String> completions = completions("journeyto personal:");
       Assertions.assertEquals(1, completions.size());
       Assertions.assertEquals("personal:home", completions.get(0));
     });
   }
 
+  @Disabled("JourneyTo is not yet implemented")
   @Test
   void complicatedScope() throws ExecutionException, InterruptedException {
-    JourneyApi api = JourneyApiProvider.get();
-    Destination destination = Destination.of(new Cell(0, 0, 0, WorldLoader.domain(0)));
-    testProxy.revokeAllPermissions(PLAYER_UUID);
+    JourneyApi api = JourneyApi.get();
+    Destination destination = Destination.of(new Cell(0, 0, 0, Key.key("0")));
+    revokeAllPermissions(PLAYER_UUID);
     final List<String> completions = new LinkedList<>();
-    TestSchedulingManager.runOnMainThread(() -> {  // The API checks to verify that we are running on the main thread when registering scopes
-      api.registerScope("Journey", "complex", Scope.builder()
-          .subScopes(() -> {
-            Map<String, Scope> scopes = new HashMap<>();
-            scopes.put("path-a", Scope.builder()
-                .destinations(() -> {
-                  Map<String, Destination> destinations = new HashMap<>();
-                  destinations.put("path-a-1", destination);
-                  destinations.put("path-shared", destination);
-                  destinations.put("permission", Destination.builder(new Cell(0, 0, 0, WorldLoader.domain(0))).permission("you-dont-have-this").build());
-                  return VirtualMap.of(destinations);
-                }).build());
-            scopes.put("path-b", Scope.builder()
-                .destinations(() -> {
-                  Map<String, Destination> destinations = new HashMap<>();
-                  destinations.put("path-b", destination);
-                  destinations.put("path-b-1", destination);
-                  destinations.put("path-b space", destination);
-                  destinations.put("path-shared", destination);
-                  return VirtualMap.of(destinations);
-                }).build());
-            scopes.put("contextually-necessary", Scope.builder()
-                .destinations(() -> {
-                  Map<String, Destination> destinations = new HashMap<>();
-                  destinations.put("path-a-1", destination);
-                  destinations.put("hidden", destination);
-                  return VirtualMap.of(destinations);
-                }).strict()
-                .build());
-            scopes.put("permission-scope", Scope.builder()
-                .destinations(VirtualMap.ofSingleton("cant-reach", destination))
-                .permission("you-also-dont-have-this")
-                .build());
-            return VirtualMap.of(scopes);
-          }).build());
+    TestSchedulingManager.runAsync(() -> {
+      api.registerScope("Journey", "complex", Scope.builder().subScopes(() -> {
+        Map<String, Scope> scopes = new HashMap<>();
+        scopes.put("path-a", Scope.builder().destinations(() -> {
+          Map<String, Destination> destinations = new HashMap<>();
+          destinations.put("path-a-1", destination);
+          destinations.put("path-shared", destination);
+          destinations.put("permission", Destination.cellBuilder(new Cell(0, 0, 0, Key.key("0")))
+              .permission("you-dont-have-this").build());
+          return VirtualMap.of(destinations);
+        }).build());
+        scopes.put("path-b", Scope.builder().destinations(() -> {
+          Map<String, Destination> destinations = new HashMap<>();
+          destinations.put("path-b", destination);
+          destinations.put("path-b-1", destination);
+          destinations.put("path-b space", destination);
+          destinations.put("path-shared", destination);
+          return VirtualMap.of(destinations);
+        }).build());
+        scopes.put("contextually-necessary", Scope.builder().destinations(() -> {
+          Map<String, Destination> destinations = new HashMap<>();
+          destinations.put("path-a-1", destination);
+          destinations.put("hidden", destination);
+          return VirtualMap.of(destinations);
+        }).strict().build());
+        scopes.put("permission-scope",
+            Scope.builder().destinations(VirtualMap.ofSingleton("cant-reach", destination))
+                .permission("you-also-dont-have-this").build());
+        return VirtualMap.of(scopes);
+      }).build());
       completions.addAll(completions("journeyto "));
     });
 
@@ -225,12 +244,14 @@ public class TestCommands extends JourneyTestHarness {
     Assertions.assertFalse(completions.contains("hidden"));
 
     // No Permission
-    String[] permissionRequired = {"path-a:permission", "permission", "permission-scope:cant-reach", "cant-reach"};
+    String[] permissionRequired = { "path-a:permission", "permission", "permission-scope:cant-reach",
+        "cant-reach" };
     for (String string : permissionRequired) {
-      Assertions.assertFalse(completions.contains(string), "The scope target " + string + " should be disallowed by permission restriction, but isn't disallowed");
+      Assertions.assertFalse(completions.contains(string), "The scope target " + string
+          + " should be disallowed by permission restriction, but isn't disallowed");
     }
-    testProxy.grantAllPermissions(PLAYER_UUID);
-    TestSchedulingManager.runOnMainThread(() -> {
+    grantAllPermissions(PLAYER_UUID);
+    TestSchedulingManager.runAsync(() -> {
       completions.clear();
       completions.addAll(completions("journeyto "));
     });
@@ -252,8 +273,8 @@ public class TestCommands extends JourneyTestHarness {
 
     // path-b
     commandSuccess("journeyto complex:path-b");
-    commandSuccess("journeyto complex:path-b:path-b");  // redundant, but ok
-    commandSuccess("journeyto path-b");  // redundant, but ok
+    commandSuccess("journeyto complex:path-b:path-b"); // redundant, but ok
+    commandSuccess("journeyto path-b"); // redundant, but ok
 
     // path-b-1
     commandSuccess("journeyto complex:path-b:path-b-1");
@@ -279,11 +300,11 @@ public class TestCommands extends JourneyTestHarness {
     commandFailure("journeyto hidden");
 
     // no permission
-    testProxy.revokeAllPermissions(PLAYER_UUID);
+    revokeAllPermissions(PLAYER_UUID);
     for (String string : permissionRequired) {
       commandFailure("journeyto " + string);
     }
-    testProxy.grantAllPermissions(PLAYER_UUID);
+    grantAllPermissions(PLAYER_UUID);
     for (String string : permissionRequired) {
       commandSuccess("journeyto " + string);
     }

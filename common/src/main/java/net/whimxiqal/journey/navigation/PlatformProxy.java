@@ -30,9 +30,10 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
+import net.kyori.adventure.key.Key;
 import net.whimxiqal.journey.Cell;
+import net.whimxiqal.journey.Color;
 import net.whimxiqal.journey.InternalJourneyPlayer;
-import net.whimxiqal.journey.JourneyAgent;
 import net.whimxiqal.journey.JourneyPlayer;
 import net.whimxiqal.journey.chunk.BlockProvider;
 import net.whimxiqal.journey.chunk.ChunkCacheBlockProvider;
@@ -40,9 +41,6 @@ import net.whimxiqal.journey.chunk.ChunkId;
 import net.whimxiqal.journey.math.Vector;
 import net.whimxiqal.journey.proxy.JourneyBlock;
 import net.whimxiqal.journey.proxy.JourneyChunk;
-import net.whimxiqal.journey.search.SearchSession;
-import net.whimxiqal.journey.search.flag.FlagSet;
-import net.whimxiqal.journey.Color;
 import org.bstats.charts.CustomChart;
 
 /**
@@ -79,7 +77,7 @@ public interface PlatformProxy extends BlockProvider {
   @Override
   JourneyBlock toBlock(Cell cell);
 
-  void spawnParticle(UUID playerUuid, String particle, Color color, int domain, double x, double y, double z);
+  void spawnParticle(UUID playerUuid, String particle, Color color, Key domain, double x, double y, double z);
 
   List<InternalJourneyPlayer> onlinePlayers();
 
@@ -91,21 +89,24 @@ public interface PlatformProxy extends BlockProvider {
 
   Optional<Vector> entityVector(UUID entityUuid);
 
-  void prepareDestinationSearchSession(SearchSession searchSession, JourneyAgent agent, FlagSet flags, Cell destination);
-
-  void sendAnimationBlock(UUID player, Cell location);
+  void sendAnimationBlocks(UUID player, Collection<Cell> locations);
 
   void resetAnimationBlocks(UUID player, Collection<Cell> locations);
-
-  String domainName(int domainId);
 
   boolean sendGui(JourneyPlayer source);
 
   Consumer<CustomChart> bStatsChartConsumer();
 
-  Map<String, Map<String, Integer>> domainResourceKeys();
+  /**
+   * Domains, keyed by Key with name as value
+   *
+   * @return domains
+   */
+  Map<Key, String> domains();
 
   List<String> particleTypes();
 
   boolean isValidParticleType(String particleType);
+
+  boolean hasPermission(UUID uuid, String permission);
 }

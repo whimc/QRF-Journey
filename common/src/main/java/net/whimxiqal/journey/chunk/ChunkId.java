@@ -23,6 +23,8 @@
 
 package net.whimxiqal.journey.chunk;
 
+import net.kyori.adventure.key.Key;
+
 /**
  * A simple identifier for a chunk, including a domain (world), x coordinate, and z coordinate.
  *
@@ -30,5 +32,5 @@ package net.whimxiqal.journey.chunk;
  * @param x      the x coordinate
  * @param z      the z coordinate
  */
-public record ChunkId(int domain, int x, int z) {
+public record ChunkId(Key domain, int x, int z) {
 }

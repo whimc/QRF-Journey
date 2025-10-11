@@ -37,8 +37,7 @@ import net.whimxiqal.journey.Destination;
 import net.whimxiqal.journey.JourneyPlayer;
 import net.whimxiqal.journey.Scope;
 import net.whimxiqal.journey.VirtualMap;
-import net.whimxiqal.journey.bukkit.JourneyBukkitApi;
-import net.whimxiqal.journey.bukkit.JourneyBukkitApiProvider;
+import net.whimxiqal.journey.paper.JourneyPaperApi;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.Plugin;
 
@@ -54,40 +53,32 @@ public class EssentialsScope implements Scope {
     // - Homes, but only if the player has multiple homes
     // - Warps
     IEssentials essentials = JourneyEssentials.essentials();
-    JourneyBukkitApi journeyBukkit = JourneyBukkitApiProvider.get();
     Map<String, Scope> subScopes = new HashMap<>();
     User user = essentials.getUser(player.uuid());
     if (user.hasValidHomes()) {
       List<String> homes = user.getHomes();
       if (homes.size() > 1) {
-        subScopes.put("homes", Scope.builder()
-            .name(Component.text("Homes"))
-            .description(Component.text("Your homes saved in Essentials"))
-            .destinations(VirtualMap.of(user.getHomes()
-                .stream()
-                .collect(Collectors.toMap(name -> name, name ->
-                    Destination.of(journeyBukkit.toCell(user.getHome(name)))))))
-            .permission("journey.path.essentials.home")
-            .build());
+        subScopes.put("homes",
+            Scope.builder().name(Component.text("Homes"))
+                .description(Component.text("Your homes saved in Essentials"))
+                .destinations(VirtualMap.of(user.getHomes().stream()
+                    .collect(Collectors.toMap(name -> name,
+                        name -> Destination.of(JourneyPaperApi.get().toCell(user.getHome(name)))))))
+                .permission("journey.path.essentials.home").build());
       }
     }
-    subScopes.put("warps", Scope.builder()
-        .name(Component.text("Warps"))
-        .destinations(p -> {
-          Map<String, Destination> destinations = new HashMap<>();
-          essentials.getWarps().getList()
-              .forEach(warp -> {
-                try {
-                  destinations.put(warp, Destination.of(journeyBukkit.toCell(essentials.getWarps().getWarp(warp))));
-                } catch (WarpNotFoundException | InvalidWorldException e) {
-                  JourneyEssentials.logger().warning("Could not find warp " + warp + " for player " + player);
-                }
-              });
-          return VirtualMap.of(destinations);
-        })
-        .strict()
-        .permission("journey.path.essentials.warp")
-        .build());
+    subScopes.put("warps", Scope.builder().name(Component.text("Warps")).destinations(p -> {
+      Map<String, Destination> destinations = new HashMap<>();
+      essentials.getWarps().getList().forEach(warp -> {
+        try {
+          destinations.put(warp,
+              Destination.of(JourneyPaperApi.get().toCell(essentials.getWarps().getWarp(warp))));
+        } catch (WarpNotFoundException | InvalidWorldException e) {
+          JourneyEssentials.logger().warning("Could not find warp " + warp + " for player " + player);
+        }
+      });
+      return VirtualMap.of(destinations);
+    }).strict().permission("journey.path.essentials.warp").build());
     return VirtualMap.of(subScopes);
   }
 
@@ -97,15 +88,13 @@ public class EssentialsScope implements Scope {
     // - Home, but only if the player has just one home
     IEssentials essentials = JourneyEssentials.essentials();
     Map<String, Destination> destinations = new HashMap<>();
-    JourneyBukkitApi journeyBukkit = JourneyBukkitApiProvider.get();
-
     User user = essentials.getUser(player.uuid());
     if (user.hasValidHomes()) {
       List<String> homes = user.getHomes();
       if (homes.size() == 1) {
-        destinations.put("home", Destination.builder(journeyBukkit.toCell(user.getHome(homes.get(0))))
-            .permission("journey.path.essentials.home")
-            .build());
+        destinations.put("home",
+            Destination.cellBuilder(JourneyPaperApi.get().toCell(user.getHome(homes.get(0))))
+                .permission("journey.path.essentials.home").build());
       }
     }
 
@@ -115,9 +104,9 @@ public class EssentialsScope implements Scope {
       if (!(plugin instanceof IEssentialsSpawn)) {
         throw new RuntimeException("Essentials class could not be found");
       }
-      destinations.put("spawn", Destination.builder(journeyBukkit.toCell(((IEssentialsSpawn) plugin).getSpawn(user.getGroup())))
-          .permission("journey.path.essentials.spawn")
-          .build());
+      destinations.put("spawn", Destination
+          .cellBuilder(JourneyPaperApi.get().toCell(((IEssentialsSpawn) plugin).getSpawn(user.getGroup())))
+          .permission("journey.path.essentials.spawn").build());
     }
     return VirtualMap.of(destinations);
   }

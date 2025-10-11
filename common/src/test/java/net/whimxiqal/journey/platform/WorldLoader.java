@@ -31,14 +31,13 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
-import java.util.UUID;
+import net.kyori.adventure.key.Key;
 import net.whimxiqal.journey.Cell;
-import net.whimxiqal.journey.Journey;
 import net.whimxiqal.journey.Tunnel;
 
 public final class WorldLoader {
 
-  public static final String[] worldResources = {"world1", "world2"};
+  public static final String[] worldResources = { "world1", "world2" };
   public static final Map<Character, CellType> cellTypes = new HashMap<>();
 
   static {
@@ -47,17 +46,12 @@ public final class WorldLoader {
     // all the rest are "blank" but serve some other purpose too
   }
 
-  public static int domain(int index) {
-    return Journey.get().domainManager().domainIndex(TestPlatformProxy.worlds.get(index).uuid);
-  }
-
   public static void initWorlds() {
     Map<Character, Cell> pendingPorts = new HashMap<>();
 
     for (int resourceIdx = 0; resourceIdx < worldResources.length; resourceIdx++) {
       String resource = worldResources[resourceIdx];
-      UUID uuid = UUID.randomUUID();
-      int domain = Journey.get().domainManager().domainIndex(uuid);
+      Key domain = Key.key(Integer.toString(resourceIdx));
       TestWorld world = new TestWorld();
       world.name = resource;
 
@@ -87,7 +81,8 @@ public final class WorldLoader {
               if (Character.isUpperCase(c)) {
                 if (pendingPorts.containsKey(Character.toLowerCase(c))) {
                   // complete the tunnel
-                  TestPlatformProxy.tunnels.add(Tunnel.builder(pendingPorts.get(Character.toLowerCase(c)), cell).build());
+                  TestPlatformProxy.tunnels
+                      .add(Tunnel.builder(pendingPorts.get(Character.toLowerCase(c)), cell).build());
                 } else {
                   pendingPorts.put(c, cell);
                 }
@@ -95,7 +90,8 @@ public final class WorldLoader {
                 // lower case
                 if (pendingPorts.containsKey(Character.toUpperCase(c))) {
                   // complete the tunnel
-                  TestPlatformProxy.tunnels.add(Tunnel.builder(cell, pendingPorts.get(Character.toUpperCase(c))).build());
+                  TestPlatformProxy.tunnels
+                      .add(Tunnel.builder(cell, pendingPorts.get(Character.toUpperCase(c))).build());
                 } else {
                   pendingPorts.put(c, cell);
                 }
@@ -110,7 +106,7 @@ public final class WorldLoader {
         e.printStackTrace();
       }
 
-      world.uuid = uuid;
+      world.key = domain;
       world.lengthX = maxLineLength;
       world.lengthY = allLines.size();
       world.cells = new CellType[world.lengthY][world.lengthX];

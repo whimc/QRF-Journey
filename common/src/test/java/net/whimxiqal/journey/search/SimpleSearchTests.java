@@ -27,13 +27,17 @@ import java.lang.reflect.Field;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
+import net.kyori.adventure.key.Key;
+import net.whimxiqal.journey.Cell;
+import net.whimxiqal.journey.CellTarget;
 import net.whimxiqal.journey.Journey;
 import net.whimxiqal.journey.JourneyTestHarness;
 import net.whimxiqal.journey.manager.DistributedWorkManager;
-import net.whimxiqal.journey.manager.TestSchedulingManager;
 import net.whimxiqal.journey.navigation.Itinerary;
 import net.whimxiqal.journey.platform.TestJourneyPlayer;
 import net.whimxiqal.journey.platform.TestPlatformProxy;
@@ -50,32 +54,39 @@ public class SimpleSearchTests extends JourneyTestHarness {
   private FlagSet flags;
 
   private SearchSession destinationSession(String origin, String destination) {
+    Cell destinationCell = TestPlatformProxy.pois.get(destination);
     return new DestinationGoalSearchSession(new TestJourneyPlayer(PLAYER_UUID),
-        TestPlatformProxy.pois.get(origin),
-        TestPlatformProxy.pois.get(destination),
-        false,
-        true);
+        TestPlatformProxy.pois.get(origin), new CellTarget(destinationCell), false, false);
   }
 
-  private SearchSession domainSession(String origin, int domainDestination) {
-    return new DomainGoalSearchSession(new TestJourneyPlayer(PLAYER_UUID), TestPlatformProxy.pois.get(origin), domainDestination, false);
+  private SearchSession domainSession(String origin, Key domainDestination) {
+    return new DomainGoalSearchSession(new TestJourneyPlayer(PLAYER_UUID), TestPlatformProxy.pois.get(origin),
+        domainDestination, false);
   }
 
-  private void runDestinationSearch(String origin, String destination, ResultState expectedResult) throws InterruptedException, ExecutionException {
+  private void runDestinationSearch(String origin, String destination, ResultState expectedResult)
+      throws InterruptedException, ExecutionException {
     runSearch(destinationSession(origin, destination), expectedResult);
   }
 
-  private void runDomainSearch(String origin, String domainName, ResultState expectedResult) throws InterruptedException, ExecutionException {
-    runSearch(domainSession(origin, Journey.get().domainManager().domainIndex(WorldLoader.getWorld(domainName).uuid)), expectedResult);
+  private void runDomainSearch(String origin, String domainName, ResultState expectedResult)
+      throws InterruptedException, ExecutionException {
+    runSearch(domainSession(origin, WorldLoader.getWorld(domainName).key), expectedResult);
   }
 
-  private void runSearch(SearchSession session, ResultState expectedResult) throws InterruptedException, ExecutionException {
+  private void runSearch(SearchSession session, ResultState expectedResult) {
     session.initialize();
     lastSessionUuid = session.uuid();
     Assertions.assertEquals(ResultState.IDLE, session.getState());
     session.addFlags(flags);
-    Future<SearchSession.Result> future = TestSchedulingManager.runOnMainThread(() -> Journey.get().searchManager().launchIngameSearch(session));
-    SearchSession.Result result = future.get();
+    Future<SearchSession.Result> future = Journey.get().searchManager().launchIngameSearch(session);
+    SearchSession.Result result;
+    try {
+      result = future.get(5, TimeUnit.SECONDS);
+    } catch (InterruptedException | ExecutionException | TimeoutException e) {
+      Assertions.fail(e);
+      return;
+    }
     Assertions.assertEquals(expectedResult, result.state(), "Expected state of session search was incorrect");
     if (result.itinerary() != null) {
       SESSION_ITINERARIES.put(session.uuid, result.itinerary());
@@ -85,7 +96,7 @@ public class SimpleSearchTests extends JourneyTestHarness {
   @BeforeEach
   void beforeEach() {
     flags = new FlagSet();
-    flags.addFlag(Flags.TIMEOUT, 5);
+    flags.addFlag(Flags.TIMEOUT, 5000);
   }
 
   @Test
@@ -96,8 +107,8 @@ public class SimpleSearchTests extends JourneyTestHarness {
   @Test
   void destinationSearchCaching() throws InterruptedException, ExecutionException {
     runDestinationSearch("1", "2", ResultState.STOPPED_SUCCESSFUL);
-    Thread.sleep(100);  // wait for caching to complete on async thread
-    runDestinationSearch("1", "2", ResultState.STOPPED_SUCCESSFUL);  // should use cached values
+    Thread.sleep(100); // wait for caching to complete on async thread
+    runDestinationSearch("1", "2", ResultState.STOPPED_SUCCESSFUL); // should use cached values
   }
 
   @Test
@@ -154,7 +165,8 @@ public class SimpleSearchTests extends JourneyTestHarness {
 
   @Test
   void stressTest() throws InterruptedException, NoSuchFieldException, IllegalAccessException {
-    // Set the work manager manually in main Journey class, so we can test with multiple threads and active path searches
+    // Set the work manager manually in main Journey class, so we can test with multiple threads and active
+    // path searches
     Field workManagerField = Journey.class.getDeclaredField("workManager");
     workManagerField.setAccessible(true);
     workManagerField.set(Journey.get(), new DistributedWorkManager(10));
@@ -166,12 +178,11 @@ public class SimpleSearchTests extends JourneyTestHarness {
     AtomicInteger finished = new AtomicInteger(0);
     AtomicInteger failed = new AtomicInteger(0);
 
-    BiFunction<String, String, SearchSession> newSearch = (origin, destination) ->
-        new DestinationGoalSearchSession(new TestJourneyPlayer(UUID.randomUUID()),
-            TestPlatformProxy.pois.get(origin),
-            TestPlatformProxy.pois.get(destination),
-            false,
-            false);
+    BiFunction<String, String, SearchSession> newSearch = (origin, destination) -> {
+      Cell destinationCell = TestPlatformProxy.pois.get(destination);
+      return new DestinationGoalSearchSession(new TestJourneyPlayer(UUID.randomUUID()),
+          TestPlatformProxy.pois.get(origin), new CellTarget(destinationCell), false, false);
+    };
 
     BiConsumer<SearchSession, ResultState> runSearchAsync = (session, expected) -> {
       session.initialize();
@@ -187,24 +198,22 @@ public class SimpleSearchTests extends JourneyTestHarness {
     };
 
     for (int i = 0; i < RUNS; i++) {
-      TestSchedulingManager.runOnMainThread(() -> {
-        runSearchAsync.accept(newSearch.apply("1", "2"), ResultState.STOPPED_SUCCESSFUL);
-        runSearchAsync.accept(newSearch.apply("1", "3"), ResultState.STOPPED_SUCCESSFUL);
-        runSearchAsync.accept(newSearch.apply("1", "4"), ResultState.STOPPED_FAILED);
-        runSearchAsync.accept(newSearch.apply("2", "3"), ResultState.STOPPED_SUCCESSFUL);
-        runSearchAsync.accept(newSearch.apply("2", "4"), ResultState.STOPPED_FAILED);
-        runSearchAsync.accept(newSearch.apply("3", "4"), ResultState.STOPPED_FAILED);
+      runSearchAsync.accept(newSearch.apply("1", "2"), ResultState.STOPPED_SUCCESSFUL);
+      runSearchAsync.accept(newSearch.apply("1", "3"), ResultState.STOPPED_SUCCESSFUL);
+      runSearchAsync.accept(newSearch.apply("1", "4"), ResultState.STOPPED_FAILED);
+      runSearchAsync.accept(newSearch.apply("2", "3"), ResultState.STOPPED_SUCCESSFUL);
+      runSearchAsync.accept(newSearch.apply("2", "4"), ResultState.STOPPED_FAILED);
+      runSearchAsync.accept(newSearch.apply("3", "4"), ResultState.STOPPED_FAILED);
 
-        runSearchAsync.accept(newSearch.apply("2", "1"), ResultState.STOPPED_SUCCESSFUL);
-        runSearchAsync.accept(newSearch.apply("3", "1"), ResultState.STOPPED_FAILED);
-        runSearchAsync.accept(newSearch.apply("4", "1"), ResultState.STOPPED_FAILED);
-        runSearchAsync.accept(newSearch.apply("3", "2"), ResultState.STOPPED_FAILED);
-        runSearchAsync.accept(newSearch.apply("4", "2"), ResultState.STOPPED_FAILED);
-        runSearchAsync.accept(newSearch.apply("4", "3"), ResultState.STOPPED_FAILED);
-      });
+      runSearchAsync.accept(newSearch.apply("2", "1"), ResultState.STOPPED_SUCCESSFUL);
+      runSearchAsync.accept(newSearch.apply("3", "1"), ResultState.STOPPED_FAILED);
+      runSearchAsync.accept(newSearch.apply("4", "1"), ResultState.STOPPED_FAILED);
+      runSearchAsync.accept(newSearch.apply("3", "2"), ResultState.STOPPED_FAILED);
+      runSearchAsync.accept(newSearch.apply("4", "2"), ResultState.STOPPED_FAILED);
+      runSearchAsync.accept(newSearch.apply("4", "3"), ResultState.STOPPED_FAILED);
     }
 
-    long failureTime = System.currentTimeMillis() + (1000 * 30);  // 30 seconds until we consider it failure
+    long failureTime = System.currentTimeMillis() + (1000 * 30); // 30 seconds until we consider it failure
     while (finished.get() != total) {
       Thread.sleep(100);
       if (System.currentTimeMillis() > failureTime) {

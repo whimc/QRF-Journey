@@ -27,13 +27,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import net.whimxiqal.journey.Cell;
+import net.whimxiqal.journey.Destination;
 import net.whimxiqal.journey.JourneyApi;
-import net.whimxiqal.journey.JourneyApiProvider;
-import net.whimxiqal.journey.bukkit.JourneyBukkitApi;
-import net.whimxiqal.journey.bukkit.JourneyBukkitApiProvider;
 import net.whimxiqal.journey.navigation.NavigationApi;
 import net.whimxiqal.journey.navigation.NavigatorDetails;
 import net.whimxiqal.journey.navigation.NavigatorDetailsBuilder;
+import net.whimxiqal.journey.paper.JourneyPaperApi;
 import net.whimxiqal.journey.search.SearchApi;
 import net.whimxiqal.journey.search.SearchFlag;
 import net.whimxiqal.journey.search.SearchFlags;
@@ -69,15 +68,18 @@ public class StartQuestListener implements Listener {
     SearchFlagsBuilder flagsBuilder = SearchFlags.builder();
     for (String key : searchSection.getKeys(false)) {
       switch (key) {
-        case FLAG_SECTION_SEARCHING_KEY_FLY -> flagsBuilder.add(SearchFlag.of(SearchFlag.Type.FLY, searchSection.getBoolean(FLAG_SECTION_SEARCHING_KEY_FLY)));
-        case FLAG_SECTION_SEARCHING_KEY_TIMEOUT -> flagsBuilder.add(SearchFlag.of(SearchFlag.Type.TIMEOUT, searchSection.getInt(FLAG_SECTION_SEARCHING_KEY_TIMEOUT)));
+        case FLAG_SECTION_SEARCHING_KEY_FLY -> flagsBuilder.add(
+            SearchFlag.of(SearchFlag.Type.FLY, searchSection.getBoolean(FLAG_SECTION_SEARCHING_KEY_FLY)));
+        case FLAG_SECTION_SEARCHING_KEY_TIMEOUT -> flagsBuilder.add(
+            SearchFlag.of(SearchFlag.Type.TIMEOUT, searchSection.getInt(FLAG_SECTION_SEARCHING_KEY_TIMEOUT)));
         default -> throw new IllegalArgumentException("Unknown search flag '" + key + "'");
       }
     }
     return flagsBuilder.build();
   }
 
-  private static @Nullable NavigatorDetails readNavigatorDetails(@Nullable ConfigurationSection flagSection, NavigationApi navigationApi) {
+  private static @Nullable NavigatorDetails readNavigatorDetails(@Nullable ConfigurationSection flagSection,
+      NavigationApi navigationApi) {
     if (flagSection == null) {
       return null;
     }
@@ -90,7 +92,8 @@ public class StartQuestListener implements Listener {
       return null;
     }
     NavigatorDetailsBuilder<?> details = navigationApi.navigatorDetailsBuilder(navigatorType);
-    ConfigurationSection optionsSection = navigationSection.getConfigurationSection(FLAG_SECTION_NAVIGATION_OPTIONS);
+    ConfigurationSection optionsSection = navigationSection
+        .getConfigurationSection(FLAG_SECTION_NAVIGATION_OPTIONS);
     if (optionsSection == null) {
       return details.build();
     }
@@ -109,24 +112,24 @@ public class StartQuestListener implements Listener {
     Objective firstObjective = activeObjectives.get(0).getObjective();
     Location location = firstObjective.getLocation();
     if (location == null) {
-      return;  // there was no location associated with this objective
+      return; // there was no location associated with this objective
     }
 
-    if (!firstObjective.getConfig().getBoolean(firstObjective.getInitialConfigPath() + '.' + USE_JOURNEY_SETTING, false)) {
-      return;  // config doesn't specify to use journey
+    if (!firstObjective.getConfig()
+        .getBoolean(firstObjective.getInitialConfigPath() + '.' + USE_JOURNEY_SETTING, false)) {
+      return; // config doesn't specify to use journey
     }
 
-    ConfigurationSection flagSection = firstObjective.getConfig().getConfigurationSection(firstObjective.getInitialConfigPath() + '.' + FLAGS_SECTION);
-    JourneyBukkitApi journeyBukkitApi = JourneyBukkitApiProvider.get();
-    Cell cell = journeyBukkitApi.toCell(firstObjective.getLocation());
+    ConfigurationSection flagSection = firstObjective.getConfig()
+        .getConfigurationSection(firstObjective.getInitialConfigPath() + '.' + FLAGS_SECTION);
+    Cell cell = JourneyPaperApi.get().toCell(firstObjective.getLocation());
 
-    JourneyApi journeyApi = JourneyApiProvider.get();
-    SearchApi searchApi = journeyApi.searching();
-    NavigationApi navigationApi = journeyApi.navigating();
+    SearchApi searchApi = JourneyApi.get().searching();
+    NavigationApi navigationApi = JourneyApi.get().navigating();
     NavigatorDetails navigatorDetails = readNavigatorDetails(flagSection, navigationApi);
     UUID playerUuid = event.getQuestPlayer().getUniqueId();
-    searchApi.runPlayerDestinationSearch(playerUuid, cell, readSearchFlags(flagSection))
-        .thenAccept(searchResult -> {
+    searchApi.runPlayerDestinationSearch(playerUuid, Destination.cellBuilder(cell).build().targetSnapshot(),
+        readSearchFlags(flagSection)).thenAccept(searchResult -> {
           if (searchResult.status() != SearchResult.Status.SUCCESS) {
             return;
           }

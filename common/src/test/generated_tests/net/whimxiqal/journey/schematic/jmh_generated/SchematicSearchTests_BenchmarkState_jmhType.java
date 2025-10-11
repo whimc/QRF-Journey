@@ -1,0 +1,4 @@
+package net.whimxiqal.journey.schematic.jmh_generated;
+public class SchematicSearchTests_BenchmarkState_jmhType extends SchematicSearchTests_BenchmarkState_jmhType_B3 {
+}
+

@@ -38,7 +38,6 @@ public interface TunnelSupplier {
    * @param player the player
    * @return the tunnels
    */
-  @Synchronous
   Collection<? extends Tunnel> tunnels(JourneyAgent player);
 
 }

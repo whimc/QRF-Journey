@@ -24,10 +24,7 @@
 package net.whimxiqal.journey.chunk;
 
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.Map;
-import java.util.Queue;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import net.whimxiqal.journey.Journey;
@@ -43,19 +40,13 @@ import net.whimxiqal.journey.search.PathTrial;
  */
 public class CentralChunkCache {
 
-  private static final int TICKS_PER_DEBUG_LOG = 20;  // once per second
-  private final Map<ChunkId, ChunkRequest> requestMap = new HashMap<>();  // this tracks requests keyed by chunk id
-  /**
-   * Tracks completed requests in order of appearance.
-   * This is only used on main thread, so no locking is needed for this
-   */
-  private final Queue<JourneyChunk> completedRequestQueue = new LinkedList<>();
+  private static final int TICKS_PER_DEBUG_LOG = 20; // once per second
+  private final Map<ChunkId, CompletableFuture<JourneyChunk>> requestMap = new HashMap<>(); // this tracks requests
+                                                                                            // keyed by chunk id
   private final Object lock = new Object();
   private boolean enabled = true;
   private boolean chunkGeneration = false;
   private ChunkCache chunkCache = null;
-  private UUID requestTaskId = null;
-  private UUID loggingTaskId = null;
 
   // Counters
   private int addedCounter = 0;
@@ -67,10 +58,7 @@ public class CentralChunkCache {
    */
   public void initialize() {
     chunkCache = new ChunkCache(PathTrial.MAX_CACHED_CHUNKS_PER_SEARCH * Settings.MAX_SEARCHES.getValue());
-    requestTaskId = Journey.get().proxy().schedulingManager().scheduleRepeat(this::executeRequests,
-        false, 1);  // Once per tick
-    loggingTaskId = Journey.get().proxy().schedulingManager().scheduleRepeat(this::broadcastLogs,
-        false, TICKS_PER_DEBUG_LOG);
+    Journey.get().proxy().schedulingManager().scheduleRepeatAsync(this::broadcastLogs, TICKS_PER_DEBUG_LOG);
     enabled = true;
     chunkGeneration = Settings.ALLOW_CHUNK_GENERATION.getValue();
   }
@@ -81,43 +69,13 @@ public class CentralChunkCache {
    */
   public void shutdown() {
     Journey.logger().debug("[Chunk Cache] Shutting down...");
-    if (requestTaskId != null) {
-      Journey.get().proxy().schedulingManager().cancelTask(requestTaskId);
-    }
-    if (loggingTaskId != null) {
-      Journey.get().proxy().schedulingManager().cancelTask(loggingTaskId);
-      broadcastLogs();  // broadcast one last time
-    }
+    broadcastLogs(); // broadcast one last time
     synchronized (lock) {
       enabled = false;
-      for (Map.Entry<ChunkId, ChunkRequest> requestEntry : requestMap.entrySet()) {
-        requestEntry.getValue().future().complete(new UnavailableJourneyChunk(requestEntry.getKey()));
+      for (var requestEntry : requestMap.entrySet()) {
+        requestEntry.getValue().complete(new UnavailableJourneyChunk(requestEntry.getKey()));
       }
       requestMap.clear();
-    }
-    completedRequestQueue.clear();
-  }
-
-  /**
-   * Runs on main server thread
-   */
-  private void executeRequests() {
-    synchronized (lock) {
-      // Prune any outdated chunks
-      removedCounter += chunkCache.prune();
-
-      // Execute requests
-      int completed = 0;
-      while (!completedRequestQueue.isEmpty()) {
-        JourneyChunk chunk = completedRequestQueue.remove();
-        ChunkRequest req = requestMap.remove(chunk.id());
-
-        // This is all on the server thread, so we can convert to a real chunk safely here
-        removedCounter += chunkCache.save(chunk);
-        req.future().complete(chunk);
-        completed++;
-      }
-      addedCounter += completed;
     }
   }
 
@@ -127,8 +85,8 @@ public class CentralChunkCache {
   private void broadcastLogs() {
     synchronized (lock) {
       if (addedCounter != 0 || removedCounter != 0) {
-        Journey.logger().debug(String.format("[Chunk Cache] {%d}: added: %d, removed: %d",
-            chunkCache.size(), addedCounter, removedCounter));
+        Journey.logger().debug(String.format("[Chunk Cache] {%d}: added: %d, removed: %d", chunkCache.size(),
+            addedCounter, removedCounter));
         addedCounter = 0;
         removedCounter = 0;
       }
@@ -168,30 +126,27 @@ public class CentralChunkCache {
           }
 
           // Chunk is not stored in cache. Is it already queued?
-          ChunkRequest maybeRequest = requestMap.get(innerChunkId);
+          var maybeRequest = requestMap.get(innerChunkId);
           if (maybeRequest != null) {
             if (isRequestedChunk) {
-              request = maybeRequest.future();
+              request = maybeRequest;
             }
             continue;
           }
 
           // Not stored and not queued. Queue it.
-          maybeRequest = new ChunkRequest(innerChunkId);
-
-          // (callback to add to request queue is always called on the main server thread)
-          Journey.get().proxy().platform().toChunk(innerChunkId, chunkGeneration).thenAccept(completedRequestQueue::add);
+          maybeRequest = Journey.get().proxy().platform().toChunk(innerChunkId, chunkGeneration);
 
           requestMap.put(innerChunkId, maybeRequest);
           if (isRequestedChunk) {
             // This is the actually requested one
-            request = maybeRequest.future();
+            request = maybeRequest;
           }
         }
       }
 
       if (request == null) {
-        throw new RuntimeException();  // programmer error -- we must have gotten a request at this point
+        throw new RuntimeException(); // programmer error -- we must have gotten a request at this point
       }
       return request;
     }

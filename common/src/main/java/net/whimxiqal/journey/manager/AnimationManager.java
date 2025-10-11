@@ -30,6 +30,7 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 import net.whimxiqal.journey.Cell;
 import net.whimxiqal.journey.Journey;
 import net.whimxiqal.journey.search.SearchSession;
@@ -41,8 +42,9 @@ public class AnimationManager {
   private static final int MAX_ANIMATED_CELLS_PER_PLAYER = 10000;
 
   private final Queue<Request> requests = new ConcurrentLinkedQueue<>();
-  private final Map<UUID, Set<Cell>> animatedCells = new HashMap<>(); // map of all cells that we have animated, saved for reversal
-  private UUID taskId = null;
+  private final Map<UUID, Set<Cell>> animatedCells = new HashMap<>(); // map of all cells that we have animated, saved
+                                                                      // for reversal
+  private AtomicBoolean flushing = new AtomicBoolean();
 
   /**
    * Thread-safe method to send animation cells for a player undergoing a given session.
@@ -66,8 +68,13 @@ public class AnimationManager {
   }
 
   public void initialize() {
-    taskId = Journey.get().proxy().schedulingManager().scheduleRepeat(() -> {
+    Journey.get().proxy().schedulingManager().scheduleRepeatAsync(() -> {
       // Flush queue on every game tick
+      if (flushing.get()) {
+        return;
+      }
+      flushing.set(true);
+      Map<UUID, Set<Cell>> batchedBlockedToSend = new HashMap<>();
       while (!requests.isEmpty()) {
         Request request = requests.remove();
 
@@ -105,16 +112,17 @@ public class AnimationManager {
         } else {
           existing.add(request.cell);
         }
-        Journey.get().proxy().platform().sendAnimationBlock(request.playerUuid, request.cell);
+        batchedBlockedToSend.computeIfAbsent(request.playerUuid, k -> new HashSet<>()).add(request.cell);
       }
-    }, false, 1);
+      for (var entry : batchedBlockedToSend.entrySet()) {
+        Journey.get().proxy().platform().sendAnimationBlocks(entry.getKey(), entry.getValue());
+      }
+      flushing.set(false);
+    }, 1);
   }
 
   public void shutdown() {
     Journey.logger().debug("[Animation Manager] Shutting down...");
-    if (taskId != null) {
-      Journey.get().proxy().schedulingManager().cancelTask(taskId);
-    }
   }
 
   private record Request(UUID playerUuid, UUID sessionUuid, @Nullable Cell cell) {

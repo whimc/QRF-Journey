@@ -28,7 +28,6 @@ import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.concurrent.CompletionStage;
 import net.whimxiqal.journey.JourneyAgent;
-import net.whimxiqal.journey.Synchronous;
 import net.whimxiqal.journey.search.SearchStep;
 
 /**
@@ -41,7 +40,6 @@ public interface NavigationApi {
    *
    * @param navigatorFactory the factory to register
    */
-  @Synchronous
   void registerNavigator(NavigatorFactory navigatorFactory);
 
   /**
@@ -54,8 +52,7 @@ public interface NavigationApi {
    * @param path  the path
    * @return the navigation result in a completion stage, for callbacks
    */
-  CompletionStage<NavigationResult> navigate(JourneyAgent agent,
-                                             List<? extends SearchStep> path);
+  CompletionStage<NavigationResult> navigate(JourneyAgent agent, List<? extends SearchStep> path);
 
   /**
    * Navigate a {@link JourneyAgent} along a path of {@link SearchStep}s using the
@@ -68,9 +65,8 @@ public interface NavigationApi {
    * @param navigatorDetails the navigator details
    * @return the navigation result in a completion stage, for callbacks
    */
-  CompletionStage<NavigationResult> navigate(JourneyAgent agent,
-                                             List<? extends SearchStep> path,
-                                             NavigatorDetails navigatorDetails);
+  CompletionStage<NavigationResult> navigate(JourneyAgent agent, List<? extends SearchStep> path,
+      NavigatorDetails navigatorDetails);
 
   /**
    * Navigate a player along a path of {@link SearchStep}s using default
@@ -83,8 +79,7 @@ public interface NavigationApi {
    * @return the navigation result in a completion stage, for callbacks
    * @throws IllegalStateException if the player cannot be found
    */
-  CompletionStage<NavigationResult> navigatePlayer(UUID playerUuid,
-                                                   List<? extends SearchStep> path)
+  CompletionStage<NavigationResult> navigatePlayer(UUID playerUuid, List<? extends SearchStep> path)
       throws NoSuchElementException;
 
   /**
@@ -99,10 +94,8 @@ public interface NavigationApi {
    * @return the navigation result in a completion stage, for callbacks
    * @throws IllegalStateException if the player cannot be found
    */
-  CompletionStage<NavigationResult> navigatePlayer(UUID playerUuid,
-                                                   List<? extends SearchStep> path,
-                                                   NavigatorDetails navigatorDetails)
-      throws NoSuchElementException;
+  CompletionStage<NavigationResult> navigatePlayer(UUID playerUuid, List<? extends SearchStep> path,
+      NavigatorDetails navigatorDetails) throws NoSuchElementException;
 
   /**
    * Create a generic builder for {@link NavigatorDetails} for the given navigator type.

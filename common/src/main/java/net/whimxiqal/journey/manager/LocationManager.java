@@ -23,10 +23,10 @@
 
 package net.whimxiqal.journey.manager;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import net.whimxiqal.journey.Cell;
 import net.whimxiqal.journey.InternalJourneyPlayer;
@@ -34,14 +34,13 @@ import net.whimxiqal.journey.Journey;
 import net.whimxiqal.journey.chunk.BlockProvider;
 
 public class LocationManager {
-  public static final long VISITATION_TIMEOUT_MS = 10;  // Any visits with 10 ms
+  public static final long VISITATION_TIMEOUT_MS = 10; // Any visits with 10 ms
   // Known player locations, updated lazily and used for updating the journey sessions
-  private final Map<UUID, Cell> locations = new HashMap<>();
-  // If this contains a player uuid, then consider them at the world's surface. The boolean value is whether this is outdated info or not.
-  private final Map<UUID, AtSurfaceInfo> atSurface = new HashMap<>();
+  private final Map<UUID, Cell> locations = new ConcurrentHashMap<>();
+  // If this contains a player uuid, then consider them at the world's surface. The boolean value is whether this is
+  // outdated info or not.
+  private final Map<UUID, AtSurfaceInfo> atSurface = new ConcurrentHashMap<>();
   private long lastVisitTime = 0;
-  // Task id for the task that updates players' locations
-  private UUID locationUpdateTaskId;
 
   /**
    * Attempt to update the cache with given player's location. The update will not go through
@@ -53,7 +52,8 @@ public class LocationManager {
    * @throws ExecutionException   see {@link BlockProvider#isAtSurface}
    * @throws InterruptedException see {@link BlockProvider#isAtSurface}
    */
-  public boolean tryUpdateLocation(UUID playerUuid, Cell location) throws ExecutionException, InterruptedException {
+  public boolean tryUpdateLocation(UUID playerUuid, Cell location)
+      throws ExecutionException, InterruptedException {
     Cell currentCachedLocation = locations.get(playerUuid);
     if (currentCachedLocation != null && currentCachedLocation.equals(location)) {
       return false;
@@ -62,7 +62,8 @@ public class LocationManager {
     locations.put(playerUuid, location);
     AtSurfaceInfo atSurfaceInfo = atSurface.get(playerUuid);
     if (atSurfaceInfo == null) {
-      atSurface.put(playerUuid, new AtSurfaceInfo(BlockProvider.isAtSurface(Journey.get().proxy().platform(), location)));
+      atSurface.put(playerUuid,
+          new AtSurfaceInfo(BlockProvider.isAtSurface(Journey.get().proxy().platform(), location)));
     } else {
       atSurfaceInfo.stale = true;
     }
@@ -78,12 +79,23 @@ public class LocationManager {
    * @throws ExecutionException   see {@link BlockProvider#isAtSurface}
    * @throws InterruptedException see {@link BlockProvider#isAtSurface}
    */
-  public boolean getAndTryUpdateIsAtSurface(UUID playerUuid, Cell location) throws ExecutionException, InterruptedException {
+  public boolean getAndTryUpdateIsAtSurface(UUID playerUuid, Cell location)
+      throws ExecutionException, InterruptedException {
     AtSurfaceInfo atSurfaceInfo = atSurface.get(playerUuid);
     if (atSurfaceInfo == null || atSurfaceInfo.stale) {
-      boolean ret = BlockProvider.isAtSurface(Journey.get().proxy().platform(), location);
-      atSurface.put(playerUuid, new AtSurfaceInfo(ret));
-      return ret;
+      Journey.get().proxy().schedulingManager().scheduleSync(location, () -> {
+        boolean ret = false;
+        try {
+          ret = BlockProvider.isAtSurface(Journey.get().proxy().platform(), location);
+        } catch (ExecutionException | InterruptedException e) {
+          // not possible for platform as provider
+          throw new RuntimeException(e);
+        }
+        atSurface.put(playerUuid, new AtSurfaceInfo(ret));
+      });
+      // if we don't have access to it yet, just say we're already at the surface because this just usually means we
+      // won't try to suggest to the user to get to the surface
+      return atSurfaceInfo == null ? true : atSurfaceInfo.atSurface;
     }
     return atSurfaceInfo.atSurface;
   }
@@ -99,7 +111,8 @@ public class LocationManager {
     try {
       updatedLocation = tryUpdateLocation(playerUuid, location);
     } catch (ExecutionException | InterruptedException e) {
-      Journey.logger().error("Internal error trying to update players cached location on move event: " + playerUuid);
+      Journey.logger()
+          .error("Internal error trying to update players cached location on move event: " + playerUuid);
       e.printStackTrace();
       return;
     }
@@ -120,10 +133,9 @@ public class LocationManager {
 
   public void initialize() {
     // task for updating player locations lazily
-    locationUpdateTaskId = Journey.get().proxy().schedulingManager().scheduleRepeat(() -> {
+    Journey.get().proxy().schedulingManager().scheduleRepeatGlobalSync(() -> {
       for (UUID navigatingPlayers : Journey.get().navigatorManager().navigatingAgents()) {
-        Optional<InternalJourneyPlayer> player = Journey.get().proxy()
-            .platform()
+        Optional<InternalJourneyPlayer> player = Journey.get().proxy().platform()
             .onlinePlayer(navigatingPlayers);
         if (player.isEmpty()) {
           continue;
@@ -135,20 +147,17 @@ public class LocationManager {
         try {
           tryUpdateLocation(navigatingPlayers, location.get());
         } catch (ExecutionException | InterruptedException e) {
-          Journey.logger().error("Internal error trying to update the cached location of player " + player.get().uuid());
+          Journey.logger()
+              .error("Internal error trying to update the cached location of player " + player.get().uuid());
           e.printStackTrace();
           // just log and continue
         }
       }
-    }, false, 5);
+    }, 5);
   }
 
   public void shutdown() {
     Journey.logger().debug("[Location Manager] Shutting down...");
-    if (locationUpdateTaskId != null) {
-      Journey.get().proxy().schedulingManager().cancelTask(locationUpdateTaskId);
-      locationUpdateTaskId = null;
-    }
   }
 
 }

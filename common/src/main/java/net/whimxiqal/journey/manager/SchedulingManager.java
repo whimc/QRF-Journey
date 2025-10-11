@@ -24,18 +24,27 @@
 package net.whimxiqal.journey.manager;
 
 import java.util.UUID;
+import net.whimxiqal.journey.Cell;
 
 public interface SchedulingManager {
 
-  void schedule(Runnable runnable, boolean async);
+  public interface CancelHandle {
+    void cancel();
+  }
 
-  void schedule(Runnable runnable, boolean async, int tickDelay);
+  void scheduleAsync(Runnable runnable);
 
-  UUID scheduleRepeat(Runnable runnable, boolean async, int tickPeriod);
+  void scheduleAsync(Runnable runnable, int tickDelay);
 
-  void cancelTask(UUID taskId);
+  void scheduleSync(Cell location, Runnable runnable);
 
-  boolean isMainThread();
+  void scheduleGlobalSync(Runnable runnable);
+
+  CancelHandle scheduleRepeatAsync(Runnable runnable, int tickPeriod);
+
+  CancelHandle scheduleRepeatGlobalSync(Runnable runnable, int tickPeriod);
+
+  CancelHandle scheduleRepeatEntity(UUID entityId, Runnable runnable, int tickPeriod);
 
   default void initialize() {
     // do nothing

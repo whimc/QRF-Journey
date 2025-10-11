@@ -28,15 +28,16 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import net.kyori.adventure.audience.Audience;
+import net.whimxiqal.journey.command.CommandSource;
 import net.whimxiqal.journey.search.ModeType;
-import net.whimxiqal.mantle.common.CommandSource;
-import net.whimxiqal.mantle.common.Mantle;
 
 /**
  * A {@link JourneyPlayer} with extra information for internal Journey purposes,
  * not to be exposed to the API.
  *
- * <p>Note that, like in {@link JourneyAgent}, some methods may only be accessed on the main thread.
+ * <p>
+ * Note that, like in {@link JourneyAgent}, some methods may only be accessed on
+ * the main thread.
  */
 public abstract class InternalJourneyPlayer implements JourneyPlayer {
 
@@ -72,7 +73,7 @@ public abstract class InternalJourneyPlayer implements JourneyPlayer {
   @Override
   public boolean hasPermission(String permission) {
     // Piggyback off Mantle
-    return Mantle.getProxy().hasPermission(uuid, permission);
+    return Journey.get().proxy().platform().hasPermission(uuid, permission);
   }
 
   @Override
@@ -96,7 +97,7 @@ public abstract class InternalJourneyPlayer implements JourneyPlayer {
 
   @Override
   public Audience audience() {
-    return Journey.get().proxy().audienceProvider().player(uuid);
+    return Journey.get().proxy().playerAudience(uuid);
   }
 
   @Override

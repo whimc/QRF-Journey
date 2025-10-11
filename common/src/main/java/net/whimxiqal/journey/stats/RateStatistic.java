@@ -25,13 +25,12 @@ package net.whimxiqal.journey.stats;
 
 import java.util.LinkedList;
 import java.util.Queue;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 public class RateStatistic {
   private final long periodMs;
   private final Queue<Node> queue = new LinkedList<>();
-  private final AtomicReference<Double> accumulator = new AtomicReference<>();
+  private double accumulator;
   private final Supplier<Long> currentTime;
   private double queueSum;
 
@@ -46,7 +45,7 @@ public class RateStatistic {
   public RateStatistic(long periodMs, Supplier<Long> currentTime) {
     this.periodMs = periodMs;
     this.currentTime = currentTime;
-    accumulator.set(0.0);
+    this.accumulator = 0.0;
   }
 
   public RateStatistic(long periodMs) {
@@ -60,24 +59,25 @@ public class RateStatistic {
     }
   }
 
-  public void store() {
+  public synchronized void store() {
     long now = currentTime.get();
     prune(now);
-    double accumulated = accumulator.getAndSet(0.0);
+    double accumulated = accumulator;
+    this.accumulator = 0.0;
     queue.add(new Node(accumulated, now));
     queueSum += accumulated;
   }
 
-  public void add(double value) {
-    accumulator.getAndAccumulate(value, Double::sum);
+  public synchronized void add(double value) {
+    accumulator += value;
   }
 
-  public double getInPeriod() {
+  public synchronized double getInPeriod() {
     prune(currentTime.get());
     return queueSum;
   }
 
-  public int getIntInPeriod() {
+  public synchronized int getIntInPeriod() {
     return (int) getInPeriod();
   }
 }

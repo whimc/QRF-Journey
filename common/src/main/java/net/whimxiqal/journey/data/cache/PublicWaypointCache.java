@@ -42,9 +42,10 @@ public class PublicWaypointCache implements PublicWaypointProvider {
   /**
    * Time until a request for info causes an update
    */
-  private static final long DATA_SOFT_LIFETIME_MS = 1000 * 60;  // 1 minute
+  private static final long DATA_SOFT_LIFETIME_MS = 1000 * 60; // 1 minute
 
-  private final AtomicReference<PublicWaypointInformation> information = new AtomicReference<>(new PublicWaypointInformation(Collections.emptyList()));
+  private final AtomicReference<PublicWaypointInformation> information = new AtomicReference<>(
+      new PublicWaypointInformation(Collections.emptyList()));
 
   public void initialize() {
     sendInfoRequest();
@@ -60,7 +61,7 @@ public class PublicWaypointCache implements PublicWaypointProvider {
   public Future<Void> update(boolean force) {
     PublicWaypointInformation info = information.get();
     if (info.refreshing.get()) {
-      return CompletableFuture.completedFuture(null);  // already in progress, do nothing
+      return CompletableFuture.completedFuture(null); // already in progress, do nothing
     }
     if (info.timestamp + DATA_SOFT_LIFETIME_MS < System.currentTimeMillis() || force) {
       boolean setRefreshing = info.refreshing.compareAndSet(false, true);
@@ -69,16 +70,17 @@ public class PublicWaypointCache implements PublicWaypointProvider {
         return sendInfoRequest();
       }
     }
-    return CompletableFuture.completedFuture(null);  // no update needed
+    return CompletableFuture.completedFuture(null); // no update needed
   }
 
   private Future<Void> sendInfoRequest() {
     CompletableFuture<Void> future = new CompletableFuture<>();
-    Journey.get().proxy().schedulingManager().schedule(() -> {
+    Journey.get().proxy().schedulingManager().scheduleAsync(() -> {
       // Request on async thread
-      information.set(new PublicWaypointInformation(Journey.get().proxy().dataManager().publicWaypointManager().getAll()));
+      information.set(new PublicWaypointInformation(
+          Journey.get().proxy().dataManager().publicWaypointManager().getAll()));
       future.complete(null);
-    }, true);
+    });
     return future;
   }
 

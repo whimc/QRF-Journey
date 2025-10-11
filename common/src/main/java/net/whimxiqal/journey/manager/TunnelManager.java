@@ -25,6 +25,7 @@ package net.whimxiqal.journey.manager;
 
 import java.util.LinkedList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import net.whimxiqal.journey.JourneyAgent;
 import net.whimxiqal.journey.Tunnel;
 import net.whimxiqal.journey.TunnelSupplier;
@@ -32,12 +33,24 @@ import net.whimxiqal.journey.TunnelSupplier;
 public class TunnelManager {
 
   private final List<TunnelSupplier> tunnelSuppliers = new LinkedList<>();
+  private final AtomicBoolean doneRegistering = new AtomicBoolean();
 
   public void register(TunnelSupplier tunnelSupplier) {
+    if (doneRegistering.get()) {
+      throw new IllegalAccessError("Cannot register tunnels anymore");
+    }
     tunnelSuppliers.add(tunnelSupplier);
   }
 
+  public void doneRegistering() {
+    doneRegistering.set(true);
+  }
+
   public List<Tunnel> tunnels(JourneyAgent agent) {
+    if (!doneRegistering.get()) {
+      // stop allowing registrations on first access
+      doneRegistering.set(true);
+    }
     List<Tunnel> tunnels = new LinkedList<>();
     for (TunnelSupplier supplier : tunnelSuppliers) {
       for (Tunnel tunnel : supplier.tunnels(agent)) {

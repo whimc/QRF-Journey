@@ -9,22 +9,19 @@ repositories {
 
 dependencies {
     implementation project(':api')
-    implementation project(':command')
-    implementation 'net.whimxiqal.mantle:common:0.2.0'
-
-    compileOnly 'org.jetbrains:annotations:24.1.0'
-    implementation 'net.kyori:adventure-api:4.17.0'
     implementation 'net.kyori:adventure-platform-api:4.3.4'
     implementation 'net.kyori:adventure-text-serializer-plain:4.17.0'
     implementation 'net.kyori:adventure-text-minimessage:4.17.0'
     implementation 'org.bstats:bstats-bukkit:3.0.1'
     implementation 'com.zaxxer:HikariCP:5.0.1'
     implementation 'org.json:json:20231013'
-    implementation 'org.spongepowered:configurate-yaml:4.2.0-SNAPSHOT'
-    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.9.2'
-    testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.9.2'
+    implementation 'org.spongepowered:configurate-yaml:4.2.0'
+    implementation 'org.incendo:cloud-core:2.0.0'
+    
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.2'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.10.2'
     testImplementation 'com.sk89q.worldedit:worldedit-core:7.2.14'
-    testImplementation 'org.mockito:mockito-core:5.3.1'
+    testImplementation 'org.mockito:mockito-core:5.20.0'
     testImplementation 'org.openjdk.jmh:jmh-core:1.36'
     testAnnotationProcessor "org.openjdk.jmh:jmh-generator-annprocess:1.36"
 }

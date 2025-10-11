@@ -27,11 +27,12 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.Set;
+import net.kyori.adventure.key.Key;
 import net.whimxiqal.journey.Cell;
 import net.whimxiqal.journey.navigation.Mode;
-import net.whimxiqal.journey.search.ModeType;
 import net.whimxiqal.journey.navigation.Path;
 import net.whimxiqal.journey.search.DestinationPathTrial;
+import net.whimxiqal.journey.search.ModeType;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -48,9 +49,8 @@ public interface PathRecordManager {
    * @param executionTime    the time it took to execute
    * @throws DataAccessException when data is accessed incorrectly
    */
-  void report(DestinationPathTrial trial,
-              Set<ModeType> modeTypes,
-              long executionTime) throws DataAccessException;
+  void report(DestinationPathTrial trial, Set<ModeType> modeTypes, long executionTime)
+      throws DataAccessException;
 
   /**
    * Clear all records. <b>Dangerous!</b>
@@ -104,16 +104,14 @@ public interface PathRecordManager {
    * A record that represents a saved {@link DestinationPathTrial}.
    */
   record PathTrialRecord(long id, Date date, long duration, double pathCost, int originX, int originY,
-                         int originZ, int destinationX, int destinationY, int destinationZ, int domain,
-                         List<PathTrialCellRecord> cells,
-                         Collection<PathTrialModeRecord> modes) {
+      int originZ, int destinationX, int destinationY, int destinationZ, Key domain,
+      List<PathTrialCellRecord> cells, Collection<PathTrialModeRecord> modes) {
   }
 
   /**
    * A record that represents a saved {@link Cell} within a {@link DestinationPathTrial}.
    */
-  record PathTrialCellRecord(PathTrialRecord record, int x, int y, int z,
-                             Integer index, ModeType modeType) {
+  record PathTrialCellRecord(PathTrialRecord record, int x, int y, int z, Integer index, ModeType modeType) {
     public Cell toCell() {
       return new Cell(x, y, z, record.domain);
     }
@@ -122,8 +120,7 @@ public interface PathRecordManager {
   /**
    * A record to store a {@link Mode}.
    */
-  record PathTrialModeRecord(PathTrialRecord record,
-                             ModeType modeType) {
+  record PathTrialModeRecord(PathTrialRecord record, ModeType modeType) {
   }
 
 }

@@ -24,6 +24,7 @@
 package net.whimxiqal.journey.chunk;
 
 import java.util.concurrent.ExecutionException;
+import net.kyori.adventure.key.Key;
 import net.whimxiqal.journey.Cell;
 import net.whimxiqal.journey.JourneyTestHarness;
 import net.whimxiqal.journey.search.flag.FlagSet;
@@ -40,11 +41,11 @@ class ChunkCacheTest extends JourneyTestHarness {
   void correctness() throws ExecutionException, InterruptedException {
     ChunkCacheBlockProvider chunkCache = new ChunkCacheBlockProvider(10, new FlagSet());
 
-    correctness(chunkCache, new Cell(0, 0, 0, 0));
-    correctness(chunkCache, new Cell(1, 2, 3, 4));
-    correctness(chunkCache, new Cell(-1, -3, -5, 2));
-    correctness(chunkCache, new Cell(101, -202, -303, 404));
-    correctness(chunkCache, new Cell(-16, 0, -16, 1)); // on the edge of the chunk
+    correctness(chunkCache, new Cell(0, 0, 0, Key.key("a")));
+    correctness(chunkCache, new Cell(1, 2, 3, Key.key("b")));
+    correctness(chunkCache, new Cell(-1, -3, -5, Key.key("c")));
+    correctness(chunkCache, new Cell(101, -202, -303, Key.key("d")));
+    correctness(chunkCache, new Cell(-16, 0, -16, Key.key("e"))); // on the edge of the chunk
   }
 
 }

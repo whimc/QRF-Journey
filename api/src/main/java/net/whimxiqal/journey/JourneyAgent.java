@@ -34,7 +34,6 @@ import net.whimxiqal.journey.search.ModeType;
  */
 public interface JourneyAgent {
 
-
   /**
    * The agent's UUID.
    *
@@ -47,7 +46,6 @@ public interface JourneyAgent {
    *
    * @return the location
    */
-  @Synchronous
   Optional<Cell> location();
 
   /**
@@ -56,7 +54,6 @@ public interface JourneyAgent {
    * @param permission the permission
    * @return true if the agent has the permission
    */
-  @Synchronous
   boolean hasPermission(String permission);
 
   /**
@@ -72,7 +69,6 @@ public interface JourneyAgent {
    *
    * @return a set of all capabilities
    */
-  @Synchronous
   Set<ModeType> modeCapabilities();
 
 }

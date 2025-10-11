@@ -38,7 +38,8 @@ public interface BlockProvider {
    */
   int AT_SURFACE_HEIGHT = 64;
 
-  static boolean isAtSurface(BlockProvider blockProvider, Cell cell) throws ExecutionException, InterruptedException {
+  static boolean isAtSurface(BlockProvider blockProvider, Cell cell)
+      throws ExecutionException, InterruptedException {
     for (int y = cell.blockY() + 1; y <= Math.min(256, cell.blockY() + AT_SURFACE_HEIGHT); y++) {
       if (!blockProvider.toBlock(new Cell(cell.blockX(), y, cell.blockZ(), cell.domain())).isAir()) {
         return false;

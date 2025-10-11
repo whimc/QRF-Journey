@@ -23,15 +23,14 @@
 
 package net.whimxiqal.journey;
 
-import java.util.Collections;
 import java.util.Map;
 import java.util.function.Supplier;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * A supplier of a {@link Map} which has {@link String} keys.
- * The size of the map may be very large, so the size of the map supplied may be given
- * so the map is only loaded in circumstances where the size is small enough to warrant it.
+ * A supplier of a {@link Map} which has {@link String} keys. The size of the map may be very large, so the
+ * size of the map supplied may be given so the map is only loaded in circumstances where the size is small
+ * enough to warrant it.
  *
  * @param <T> the value type stored in the map
  */
@@ -46,7 +45,7 @@ public interface VirtualMap<T> {
    * @return the map supplier
    */
   static <X> VirtualMap<X> of(Supplier<Map<String, ? extends X>> supplier, int size) {
-    return new VirtualMapImpl<>(supplier, size);
+    return VirtualMapFactory.INSTANCE.of(supplier, size);
   }
 
   /**
@@ -57,7 +56,7 @@ public interface VirtualMap<T> {
    * @return the map supplier
    */
   static <X> VirtualMap<X> of(Map<String, ? extends X> map) {
-    return new VirtualMapImpl<>(map);
+    return VirtualMapFactory.INSTANCE.of(map);
   }
 
   /**
@@ -69,7 +68,7 @@ public interface VirtualMap<T> {
    * @return the map supplier
    */
   static <X> VirtualMap<X> ofSingleton(String id, X item) {
-    return new VirtualMapImpl<>(Collections.singletonMap(id, item));
+    return VirtualMapFactory.INSTANCE.ofSingleton(id, item);
   }
 
   /**
@@ -79,7 +78,7 @@ public interface VirtualMap<T> {
    * @return the map supplier
    */
   static <X> VirtualMap<X> empty() {
-    return new VirtualMapImpl<>(Collections.emptyMap());
+    return VirtualMapFactory.INSTANCE.empty();
   }
 
   /**
@@ -92,9 +91,9 @@ public interface VirtualMap<T> {
   /**
    * The size of the map that this object supplies.
    *
-   * <p>Sometimes, the size of map of values is too large to load or render to the user.
-   * Here, the size may be calculated before the map is actually loaded, if such a function
-   * makes sense for the type of data supplied.
+   * <p>Sometimes, the size of map of values is too large to load or render to the user. Here, the size may be
+   * calculated before the map is actually loaded, if such a function makes sense for the type of data
+   * supplied.
    *
    * @return the size of the map that would be supplied
    */
@@ -103,8 +102,8 @@ public interface VirtualMap<T> {
   }
 
   /**
-   * Get a value by its id. This can be overridden for cases where the entire map need not
-   * be supplied in order to search for a value, such as components backed by a database.
+   * Get a value by its id. This can be overridden for cases where the entire map need not be supplied in
+   * order to search for a value, such as components backed by a database.
    *
    * @param id the identifier
    * @return the value

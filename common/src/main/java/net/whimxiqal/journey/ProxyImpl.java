@@ -24,22 +24,25 @@
 package net.whimxiqal.journey;
 
 import java.nio.file.Path;
+import java.util.UUID;
+import java.util.function.Function;
+import net.kyori.adventure.audience.Audience;
 import net.whimxiqal.journey.data.DataManager;
 import net.whimxiqal.journey.data.DataManagerImpl;
 import net.whimxiqal.journey.manager.SchedulingManager;
 import net.whimxiqal.journey.navigation.PlatformProxy;
 import net.whimxiqal.journey.util.CommonLogger;
-import net.kyori.adventure.platform.AudienceProvider;
 
 public class ProxyImpl implements Proxy {
 
   private CommonLogger logger;
   private Path dataFolder;
-  private AudienceProvider audienceProvider;
+  private Function<UUID, Audience> playerAudienceFunction;
+  private Audience consoleAudience;
   private Path configPath;
   private Path messagesConfigPath;
   private SchedulingManager schedulingManager;
-  private DataManager dataManager = new DataManagerImpl();  // default data manager
+  private DataManager dataManager = new DataManagerImpl(); // default data manager
   private PlatformProxy platformProxy;
   private String version;
 
@@ -61,13 +64,22 @@ public class ProxyImpl implements Proxy {
     return dataFolder;
   }
 
-  public void audienceProvider(AudienceProvider audienceProvider) {
-    this.audienceProvider = audienceProvider;
+  public void playerAudienceFunction(Function<UUID, Audience> playerAudienceFunction) {
+    this.playerAudienceFunction = playerAudienceFunction;
   }
 
   @Override
-  public AudienceProvider audienceProvider() {
-    return audienceProvider;
+  public Audience playerAudience(UUID player) {
+    return this.playerAudienceFunction.apply(player);
+  }
+
+  public void consoleAudience(Audience consoleAudience) {
+    this.consoleAudience = consoleAudience;
+  }
+
+  @Override
+  public Audience consoleAudience() {
+    return consoleAudience;
   }
 
   public void configPath(Path configPath) {
@@ -103,9 +115,6 @@ public class ProxyImpl implements Proxy {
 
   @Override
   public DataManager dataManager() {
-    if (schedulingManager.isMainThread()) {
-      Journey.logger().debug("Data manager accessed on the main thread. Unless this was during initialization, this is likely a mistake. Please notify the developer.");
-    }
     return dataManager;
   }
 

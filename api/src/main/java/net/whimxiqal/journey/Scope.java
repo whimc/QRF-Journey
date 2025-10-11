@@ -44,7 +44,6 @@ public interface Scope extends Describable, Permissible {
    * @param player the player
    * @return the supplier of sub-scopes
    */
-  @Synchronous
   default VirtualMap<Scope> subScopes(JourneyPlayer player) {
     return VirtualMap.empty();
   }
@@ -56,7 +55,6 @@ public interface Scope extends Describable, Permissible {
    * @param player the player
    * @return the supplier
    */
-  @Synchronous
   default VirtualMap<Destination> destinations(JourneyPlayer player) {
     return VirtualMap.empty();
   }

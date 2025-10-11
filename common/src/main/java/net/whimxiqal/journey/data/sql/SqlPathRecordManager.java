@@ -37,24 +37,21 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import net.kyori.adventure.key.Key;
 import net.whimxiqal.journey.Cell;
-import net.whimxiqal.journey.Journey;
 import net.whimxiqal.journey.data.DataAccessException;
 import net.whimxiqal.journey.data.PathRecordManager;
-import net.whimxiqal.journey.search.ModeType;
 import net.whimxiqal.journey.navigation.Path;
 import net.whimxiqal.journey.navigation.Step;
 import net.whimxiqal.journey.search.DestinationPathTrial;
-import net.whimxiqal.journey.util.UUIDUtil;
+import net.whimxiqal.journey.search.ModeType;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * A generic path record manager for SQL storage.
  */
-public class SqlPathRecordManager
-    extends SqlManager
-    implements PathRecordManager {
+public class SqlPathRecordManager extends SqlManager implements PathRecordManager {
 
   /**
    * General constructor.
@@ -66,9 +63,7 @@ public class SqlPathRecordManager
   }
 
   @Override
-  public void report(DestinationPathTrial trial,
-                     Set<ModeType> modeTypes,
-                     long executionTime)
+  public void report(DestinationPathTrial trial, Set<ModeType> modeTypes, long executionTime)
       throws DataAccessException {
     Path path = trial.getPath();
     if (path == null) {
@@ -81,7 +76,8 @@ public class SqlPathRecordManager
     }
 
     // Delete any previous record if it has the same origin/destination/world and is slower
-    List<PathTrialRecord> oldRecords = getRecords(trial.getOrigin(), trial.getDestination());
+    // TODO [caching]
+    List<PathTrialRecord> oldRecords = null; // getRecords(trial.getOrigin(), trial.getDestination());
     for (PathTrialRecord oldRecord : oldRecords) {
       try (Connection connection = getConnectionController().establishConnection()) {
         if (oldRecord.pathCost() <= path.getCost()) {
@@ -89,9 +85,9 @@ public class SqlPathRecordManager
         }
         if (modeTypes.containsAll(oldRecord.modes().stream().map(PathTrialModeRecord::modeType).toList())) {
           // this path distance is better and can do it in the same or fewer modes, so delete the current one
-          connection.prepareStatement("DELETE FROM " + SqlManager.CACHED_PATHS_TABLE
-                  + " WHERE "
-                  + "id = " + oldRecord.id())
+          connection
+              .prepareStatement(
+                  "DELETE FROM " + SqlManager.CACHED_PATHS_TABLE + " WHERE " + "id = " + oldRecord.id())
               .execute();
         }
       } catch (SQLException e) {
@@ -103,19 +99,10 @@ public class SqlPathRecordManager
     long pathReportId = -1;
     try (Connection connection = getConnectionController().establishConnection()) {
       PreparedStatement statement = connection.prepareStatement(String.format(
-              "INSERT INTO %s (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
-                  + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
-              SqlManager.CACHED_PATHS_TABLE,
-              "created",
-              "duration",
-              "path_length",
-              "origin_x",
-              "origin_y",
-              "origin_z",
-              "destination_x",
-              "destination_y",
-              "destination_z",
-              "domain_id"),
+          "INSERT INTO %s (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
+              + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
+          SqlManager.CACHED_PATHS_TABLE, "created", "duration", "path_length", "origin_x", "origin_y",
+          "origin_z", "destination_x", "destination_y", "destination_z", "domain_key"),
           Statement.RETURN_GENERATED_KEYS);
 
       statement.setTimestamp(1, new Timestamp(System.currentTimeMillis()));
@@ -124,10 +111,11 @@ public class SqlPathRecordManager
       statement.setInt(4, trial.getOrigin().blockX());
       statement.setInt(5, trial.getOrigin().blockY());
       statement.setInt(6, trial.getOrigin().blockZ());
-      statement.setInt(7, trial.getDestination().blockX());
-      statement.setInt(8, trial.getDestination().blockY());
-      statement.setInt(9, trial.getDestination().blockZ());
-      statement.setBytes(10, UUIDUtil.uuidToBytes(Journey.get().domainManager().domainId(trial.getDomain())));
+      // TODO [caching]
+      // statement.setInt(7, trial.getDestination().blockX());
+      // statement.setInt(8, trial.getDestination().blockY());
+      // statement.setInt(9, trial.getDestination().blockZ());
+      statement.setString(10, trial.getDomain().asString());
 
       statement.execute();
 
@@ -149,14 +137,9 @@ public class SqlPathRecordManager
     for (int i = 0; i < steps.size(); i++) {
       Step step = steps.get(i);
       try (Connection connection = getConnectionController().establishConnection()) {
-        PreparedStatement statement = connection.prepareStatement(String.format(
-            "INSERT INTO %s (%s, %s, %s, %s, %s, %s) "
-                + "VALUES (?, ?, ?, ?, ?, ?);",
-            SqlManager.CACHED_PATH_CELLS_TABLE,
-            "path_id",
-            "x", "y", "z",
-            "path_index",
-            "mode_type"));
+        PreparedStatement statement = connection.prepareStatement(
+            String.format("INSERT INTO %s (%s, %s, %s, %s, %s, %s) " + "VALUES (?, ?, ?, ?, ?, ?);",
+                SqlManager.CACHED_PATH_CELLS_TABLE, "path_id", "x", "y", "z", "path_index", "mode_type"));
 
         statement.setLong(1, pathReportId);
         statement.setInt(2, step.location().blockX());
@@ -173,11 +156,9 @@ public class SqlPathRecordManager
 
     for (ModeType modeType : modeTypes) {
       try (Connection connection = getConnectionController().establishConnection()) {
-        PreparedStatement statement = connection.prepareStatement(String.format(
-            "INSERT INTO %s (%s, %s) VALUES (?, ?);",
-            SqlManager.CACHED_PATH_MODES_TABLE,
-            "path_id",
-            "mode_type"));
+        PreparedStatement statement = connection
+            .prepareStatement(String.format("INSERT INTO %s (%s, %s) VALUES (?, ?);",
+                SqlManager.CACHED_PATH_MODES_TABLE, "path_id", "mode_type"));
 
         statement.setLong(1, pathReportId);
         statement.setInt(2, modeType.id());
@@ -194,19 +175,16 @@ public class SqlPathRecordManager
   @Override
   public void truncate() {
     try (Connection connection = getConnectionController().establishConnection()) {
-      PreparedStatement statement = connection.prepareStatement(String.format(
-          "DELETE FROM %s;",
-          SqlManager.CACHED_PATHS_TABLE));
+      PreparedStatement statement = connection
+          .prepareStatement(String.format("DELETE FROM %s;", SqlManager.CACHED_PATHS_TABLE));
       statement.execute();
 
-      statement = connection.prepareStatement(String.format(
-          "DELETE FROM %s;",
-          SqlManager.CACHED_PATH_CELLS_TABLE));
+      statement = connection
+          .prepareStatement(String.format("DELETE FROM %s;", SqlManager.CACHED_PATH_CELLS_TABLE));
       statement.execute();
 
-      statement = connection.prepareStatement(String.format(
-          "DELETE FROM %s;",
-          SqlManager.CACHED_PATH_MODES_TABLE));
+      statement = connection
+          .prepareStatement(String.format("DELETE FROM %s;", SqlManager.CACHED_PATH_MODES_TABLE));
       statement.execute();
     } catch (SQLException e) {
       e.printStackTrace();
@@ -217,9 +195,8 @@ public class SqlPathRecordManager
   @Override
   public int totalRecordCellCount() {
     try (Connection connection = getConnectionController().establishConnection()) {
-      PreparedStatement statement = connection.prepareStatement(String.format(
-          "SELECT COUNT(*) FROM %s;",
-          SqlManager.CACHED_PATH_CELLS_TABLE));
+      PreparedStatement statement = connection
+          .prepareStatement(String.format("SELECT COUNT(*) FROM %s;", SqlManager.CACHED_PATH_CELLS_TABLE));
       ResultSet result = statement.executeQuery();
       if (result.next()) {
         return result.getInt(1);
@@ -243,24 +220,17 @@ public class SqlPathRecordManager
    */
   private List<PathTrialRecord> getRecordsWithoutCells(Cell origin, Cell destination) {
     try (Connection connection = getConnectionController().establishConnection()) {
-      ResultSet recordResult = connection.prepareStatement("SELECT * FROM "
-              + SqlManager.CACHED_PATHS_TABLE
-              + " WHERE "
-              + "origin_x = " + origin.blockX() + " AND "
-              + "origin_y = " + origin.blockY() + " AND "
-              + "origin_z = " + origin.blockZ() + " AND "
-              + "destination_x = " + destination.blockX() + " AND "
-              + "destination_y = " + destination.blockY() + " AND "
-              + "destination_z = " + destination.blockZ() + " AND "
-              + "domain_id = '" + origin.domain() + "'")
-          .executeQuery();
+      ResultSet recordResult = connection.prepareStatement("SELECT * FROM " + SqlManager.CACHED_PATHS_TABLE
+          + " WHERE " + "origin_x = " + origin.blockX() + " AND " + "origin_y = " + origin.blockY() + " AND "
+          + "origin_z = " + origin.blockZ() + " AND " + "destination_x = " + destination.blockX() + " AND "
+          + "destination_y = " + destination.blockY() + " AND " + "destination_z = " + destination.blockZ()
+          + " AND " + "domain_key = '" + origin.domain() + "'").executeQuery();
       List<PathTrialRecord> records = new LinkedList<>();
       while (recordResult.next()) {
         PathTrialRecord record = extractRecord(recordResult);
-        ResultSet modeResult = connection.prepareStatement("SELECT * FROM "
-            + SqlManager.CACHED_PATH_MODES_TABLE
-            + " WHERE "
-            + "path_id = " + record.id()).executeQuery();
+        ResultSet modeResult = connection.prepareStatement(
+            "SELECT * FROM " + SqlManager.CACHED_PATH_MODES_TABLE + " WHERE " + "path_id = " + record.id())
+            .executeQuery();
         while (modeResult.next()) {
           record.modes().add(new PathTrialModeRecord(record,
               Objects.requireNonNull(ModeType.get(modeResult.getInt("mode_type")))));
@@ -283,9 +253,8 @@ public class SqlPathRecordManager
       // Add the subcomponents (modes and cells) to the previously empty records
       for (PathTrialRecord emptyRecord : emptyRecords) {
         ResultSet cellResult = connection.prepareStatement("SELECT * FROM "
-            + SqlManager.CACHED_PATH_CELLS_TABLE
-            + " WHERE "
-            + "path_id = " + emptyRecord.id()).executeQuery();
+            + SqlManager.CACHED_PATH_CELLS_TABLE + " WHERE " + "path_id = " + emptyRecord.id())
+            .executeQuery();
         while (cellResult.next()) {
           emptyRecord.cells().add(extractCell(emptyRecord, cellResult));
         }
@@ -300,10 +269,7 @@ public class SqlPathRecordManager
   @Nullable
   private PathTrialRecord findRecordWithModes(Collection<PathTrialRecord> records, Set<ModeType> modeTypes) {
     for (PathTrialRecord record : records) {
-      if (record.modes()
-          .stream()
-          .map(PathTrialModeRecord::modeType)
-          .allMatch(modeTypes::contains)) {
+      if (record.modes().stream().map(PathTrialModeRecord::modeType).allMatch(modeTypes::contains)) {
         return record;
       }
     }
@@ -321,15 +287,16 @@ public class SqlPathRecordManager
       PathTrialRecord record = findRecordWithModes(getRecordsWithoutCells(origin, destination),
           modeTypeGroup);
 
-      ResultSet cellResult = connection.prepareStatement("SELECT * FROM "
-          + SqlManager.CACHED_PATH_CELLS_TABLE
-          + " WHERE "
-          + "path_id = " + record.id()).executeQuery();
+      ResultSet cellResult = connection
+          .prepareStatement(
+              "SELECT * FROM " + SqlManager.CACHED_PATH_CELLS_TABLE + " WHERE " + "path_id = " + record.id())
+          .executeQuery();
       while (cellResult.next()) {
         record.cells().add(extractCell(record, cellResult));
       }
       if (record.cells().isEmpty()) {
-        throw new DataAccessException("Tried to get a path (id:" + record.id() + "), but found no path cells");
+        throw new DataAccessException(
+            "Tried to get a path (id:" + record.id() + "), but found no path cells");
       }
 
       record.cells().sort(Comparator.comparing(PathTrialCellRecord::index));
@@ -340,9 +307,8 @@ public class SqlPathRecordManager
       steps.add(new Step(record.cells().get(0).toCell(), 0, record.cells().get(0).modeType()));
       for (int i = 1; i < record.cells().size(); i++) {
         Cell cell = record.cells().get(i).toCell();
-        steps.add(new Step(cell,
-            cell.distanceTo(steps.getLast().location()),
-            record.cells().get(i).modeType()));
+        steps.add(
+            new Step(cell, cell.distanceTo(steps.getLast().location()), record.cells().get(i).modeType()));
       }
 
       return new Path(steps.getFirst().location(), steps, record.pathCost());
@@ -358,33 +324,18 @@ public class SqlPathRecordManager
   }
 
   private PathTrialRecord extractRecord(final ResultSet resultSet) throws SQLException {
-    return new PathTrialRecord(
-        resultSet.getLong("id"),
-        resultSet.getDate("created"),
-        resultSet.getLong("duration"),
-        resultSet.getLong("path_length"),
-        resultSet.getInt("origin_x"),
-        resultSet.getInt("origin_y"),
-        resultSet.getInt("origin_z"),
-        resultSet.getInt("destination_x"),
-        resultSet.getInt("destination_y"),
-        resultSet.getInt("destination_z"),
-        Journey.get().domainManager().domainIndex(UUIDUtil.bytesToUuid(resultSet.getBytes("domain_id"))),
-        new LinkedList<>(),
-        new LinkedList<>()
-    );
+    return new PathTrialRecord(resultSet.getLong("id"), resultSet.getDate("created"),
+        resultSet.getLong("duration"), resultSet.getLong("path_length"), resultSet.getInt("origin_x"),
+        resultSet.getInt("origin_y"), resultSet.getInt("origin_z"), resultSet.getInt("destination_x"),
+        resultSet.getInt("destination_y"), resultSet.getInt("destination_z"),
+        Key.key(resultSet.getString("domain_key")), new LinkedList<>(), new LinkedList<>());
   }
 
-  private PathTrialCellRecord extractCell(final PathTrialRecord record,
-                                          final ResultSet resultSet) throws SQLException {
-    return new PathTrialCellRecord(
-        record,
-        resultSet.getInt("x"),
-        resultSet.getInt("y"),
-        resultSet.getInt("z"),
-        resultSet.getInt("path_index"),
-        Objects.requireNonNull(ModeType.get(resultSet.getInt("mode_type")))
-    );
+  private PathTrialCellRecord extractCell(final PathTrialRecord record, final ResultSet resultSet)
+      throws SQLException {
+    return new PathTrialCellRecord(record, resultSet.getInt("x"), resultSet.getInt("y"),
+        resultSet.getInt("z"), resultSet.getInt("path_index"),
+        Objects.requireNonNull(ModeType.get(resultSet.getInt("mode_type"))));
   }
 
 }

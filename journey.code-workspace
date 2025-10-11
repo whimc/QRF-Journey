@@ -1,0 +1,39 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+        "editor.formatOnSave": true,
+        "java.configuration.updateBuildConfiguration": "automatic",
+        "java.codeGeneration.useBlocks": false,
+        "java.saveActions.organizeImports": true,
+        "java.compile.nullAnalysis.mode": "automatic",
+        "editor.detectIndentation": false,
+        "files.insertFinalNewline": true,
+        "files.eol": "\n",
+        "java.checkstyle.version": "11.0.1",
+        "java.checkstyle.configuration": "config/checkstyle/checkstyle.xml",
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": "explicit"
+        },
+        "java.completion.importOrder": [
+            "#",
+        ],
+        "editor.tabSize": 2,
+        "java.format.settings.url": ".vscode/java-formatter.xml",
+        "[gradle]": {
+            "editor.tabSize": 4
+        }
+	},
+    "extensions": {
+        "recommendations": [
+            "vscjava.vscode-java-debug",
+            "vscjava.vscode-java-dependency",
+            "vscjava.vscode-java-test",
+            "vscjava.vscode-gradle",
+            "shengchen.vscode-checkstyle",
+        ]
+    }
+}

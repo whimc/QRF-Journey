@@ -23,15 +23,15 @@
 
 package net.whimxiqal.journey.manager;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import net.whimxiqal.journey.Cell;
 
 public final class PlayerManager {
 
-  Map<UUID, Cell> deathLocations = new HashMap<>();
+  Map<UUID, Cell> deathLocations = new ConcurrentHashMap<>();
 
   public Optional<Cell> getDeathLocation(UUID playerUuid) {
     return Optional.ofNullable(deathLocations.get(playerUuid));

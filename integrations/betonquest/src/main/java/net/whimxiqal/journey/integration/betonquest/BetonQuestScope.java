@@ -23,22 +23,21 @@
 
 package net.whimxiqal.journey.integration.betonquest;
 
+import java.io.ObjectInputFilter.Config;
+import java.lang.foreign.MemorySegment.Scope;
 import java.util.HashMap;
 import java.util.Map;
+import javax.print.attribute.standard.Destination;
 import net.kyori.adventure.text.Component;
 import net.whimxiqal.journey.Cell;
-import net.whimxiqal.journey.Destination;
 import net.whimxiqal.journey.JourneyPlayer;
-import net.whimxiqal.journey.Scope;
 import net.whimxiqal.journey.ScopeBuilder;
 import net.whimxiqal.journey.VirtualMap;
-import net.whimxiqal.journey.bukkit.JourneyBukkitApi;
-import net.whimxiqal.journey.bukkit.JourneyBukkitApiProvider;
+import net.whimxiqal.journey.paper.JourneyBukkitApi;
 import org.betonquest.betonquest.BetonQuest;
 import org.betonquest.betonquest.api.bukkit.config.custom.multi.MultiConfiguration;
 import org.betonquest.betonquest.api.config.quest.QuestPackage;
 import org.betonquest.betonquest.api.profiles.OnlineProfile;
-import org.betonquest.betonquest.config.Config;
 import org.betonquest.betonquest.database.PlayerData;
 import org.betonquest.betonquest.utils.PlayerConverter;
 import org.bukkit.Bukkit;
@@ -55,17 +54,14 @@ public class BetonQuestScope implements Scope {
   @Override
   public VirtualMap<Scope> subScopes(JourneyPlayer player) {
     Map<String, Scope> betonQuestScopes = new HashMap<>();
-    Scope compassScope = Scope.builder()
-        .name(Component.text("Compass Destinations"))
-        .permission("journey.path.betonquest.compass")
-        .subScopes(() -> {
+    Scope compassScope = Scope.builder().name(Component.text("Compass Destinations"))
+        .permission("journey.path.betonquest.compass").subScopes(() -> {
           Player bukkitPlayer = Bukkit.getPlayer(player.uuid());
           if (bukkitPlayer == null) {
             JourneyBetonQuest.logger.severe("Could not find player " + player);
             return VirtualMap.empty();
           }
 
-          JourneyBukkitApi journeyBukkit = JourneyBukkitApiProvider.get();
           Map<String, Scope> packageScopes = new HashMap<>();
           OnlineProfile profile = PlayerConverter.getID(bukkitPlayer);
           PlayerData playerData = BetonQuest.getInstance().getPlayerData(profile);
@@ -96,12 +92,14 @@ public class BetonQuestScope implements Scope {
                 name = config.getString("compass." + key + ".name");
               }
               if (name == null) {
-                JourneyBetonQuest.logger.warning("Name not defined in a compass pointer in " + packName + " package: " + key);
+                JourneyBetonQuest.logger
+                    .warning("Name not defined in a compass pointer in " + packName + " package: " + key);
                 continue;
               }
 
               if (location == null) {
-                JourneyBetonQuest.logger.warning("Location not defined in a compass pointer in " + packName + " package: " + key);
+                JourneyBetonQuest.logger
+                    .warning("Location not defined in a compass pointer in " + packName + " package: " + key);
                 continue;
               }
               // check if the player has special compass tag
@@ -111,12 +109,14 @@ public class BetonQuestScope implements Scope {
               // if the tag is present, continue
               final String[] parts = location.split(";");
               if (parts.length != 4) {
-                JourneyBetonQuest.logger.warning("Could not parse location in a compass pointer in " + packName + " package: " + key);
+                JourneyBetonQuest.logger.warning(
+                    "Could not parse location in a compass pointer in " + packName + " package: " + key);
                 continue;
               }
               final World world = Bukkit.getWorld(parts[3]);
               if (world == null) {
-                JourneyBetonQuest.logger.warning("World does not exist in a compass pointer in " + packName + " package: " + key);
+                JourneyBetonQuest.logger
+                    .warning("World does not exist in a compass pointer in " + packName + " package: " + key);
                 continue;
               }
               final int locX;
@@ -127,12 +127,14 @@ public class BetonQuestScope implements Scope {
                 locY = Integer.parseInt(parts[1]);
                 locZ = Integer.parseInt(parts[2]);
               } catch (final NumberFormatException e) {
-                JourneyBetonQuest.logger.warning("Could not parse location coordinates in a compass pointer in " + packName + " package: " + key + ": " + e.getMessage());
+                JourneyBetonQuest.logger
+                    .warning("Could not parse location coordinates in a compass pointer in " + packName
+                        + " package: " + key + ": " + e.getMessage());
                 continue;
               }
-              packageScope.destinations(VirtualMap.ofSingleton(key, Destination.builder(new Cell(locX, locY, locZ, journeyBukkit.toDomain(world)))
-                  .name(Component.text(name))
-                  .build()));
+              packageScope.destinations(VirtualMap.ofSingleton(key,
+                  Destination.cellBuilder(new Cell(locX, locY, locZ, JourneyBukkitApi.get().toDomain(world)))
+                      .name(Component.text(name)).build()));
             }
 
             packageScopes.put(packName, packageScope.build());

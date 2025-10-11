@@ -35,6 +35,7 @@ import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import net.kyori.adventure.key.Key;
 import net.whimxiqal.journey.Cell;
 import net.whimxiqal.journey.Journey;
 import net.whimxiqal.journey.chunk.BlockProvider;
@@ -74,7 +75,7 @@ public class PathTrial implements WorkItem {
   protected final Queue<Node> upcoming;
   protected final CostFunction costFunction;
   protected final SearchSession session;
-  private final int domain;
+  private final Key domain;
   private final Completer completer;
   private final List<Mode> modes = new LinkedList<>();
   private final boolean saveOnComplete;
@@ -101,25 +102,14 @@ public class PathTrial implements WorkItem {
    * @param completer    the object to determine whether the path algorithm is complete and
    *                     the goal has been reached
    */
-  public PathTrial(SearchSession session,
-                   Cell origin,
-                   Collection<Mode> modes,
-                   CostFunction costFunction,
-                   Completer completer,
-                   boolean saveOnComplete) {
+  public PathTrial(SearchSession session, Cell origin, Collection<Mode> modes, CostFunction costFunction,
+      Completer completer, boolean saveOnComplete) {
     this(session, origin, modes, costFunction, completer, 0, null, ResultState.IDLE, false, saveOnComplete);
   }
 
-  protected PathTrial(SearchSession session,
-                      Cell origin,
-                      Collection<Mode> modes,
-                      CostFunction costFunction,
-                      Completer completer,
-                      double length,
-                      @Nullable Path path,
-                      ResultState state,
-                      boolean fromCache,
-                      boolean saveOnComplete) {
+  protected PathTrial(SearchSession session, Cell origin, Collection<Mode> modes, CostFunction costFunction,
+      Completer completer, double length, @Nullable Path path, ResultState state, boolean fromCache,
+      boolean saveOnComplete) {
     this.session = session;
     this.origin = origin;
     this.domain = origin.domain();
@@ -132,14 +122,15 @@ public class PathTrial implements WorkItem {
     this.fromCache = fromCache;
     this.saveOnComplete = saveOnComplete;
     this.chunkCache = new ChunkCacheBlockProvider(MAX_CACHED_CHUNKS_PER_SEARCH, session.flags());
-    this.upcoming = new PriorityQueue<>(Comparator.comparingDouble(node -> costFunction.apply(node.data.location(),  node.score)));
+    this.upcoming = new PriorityQueue<>(
+        Comparator.comparingDouble(node -> costFunction.apply(node.data.location(), node.score)));
   }
 
   public Cell getOrigin() {
     return origin;
   }
 
-  public int getDomain() {
+  public Key getDomain() {
     return domain;
   }
 
@@ -176,7 +167,7 @@ public class PathTrial implements WorkItem {
     this.path = new Path(origin, new ArrayList<>(steps), length);
     this.fromCache = false;
     if (saveOnComplete) {
-      Journey.get().proxy().schedulingManager().schedule(this::cacheSuccess, true);
+      Journey.get().proxy().schedulingManager().scheduleAsync(this::cacheSuccess);
     }
     future.complete(new TrialResult(this.state, this.path, true));
   }
@@ -230,15 +221,14 @@ public class PathTrial implements WorkItem {
     }
 
     if (firstCycle) {
-      Node originNode = new Node(new Step(origin, 0, ModeType.NONE),
-          null, 0);
+      Node originNode = new Node(new Step(origin, 0, ModeType.NONE), null, 0);
       upcoming.add(originNode);
       visited.put(origin, originNode);
       firstCycle = false;
     }
 
     // Start actual execution
-    int startingCycleCount = visited.size();  // tracker to make sure we have short work cycles
+    int startingCycleCount = visited.size(); // tracker to make sure we have short work cycles
     int animationDelayMs = session.flags.getValueFor(Flags.ANIMATE);
     boolean isAnimating = animationDelayMs > 0 && session.callerType == SearchSession.Caller.PLAYER;
     // caller has to be a PLAYER if animation flag was set, but just check to be sure so we know the caller id
@@ -246,9 +236,8 @@ public class PathTrial implements WorkItem {
 
     Node current;
     while (!upcoming.isEmpty()) {
-
       if (shouldDelay(animationDelayMs)) {
-        return false;  // (not done)
+        return false; // (not done)
       }
 
       if (session.state.get().shouldStop()) {
@@ -273,7 +262,7 @@ public class PathTrial implements WorkItem {
 
       if (visited.size() >= startingCycleCount + CELLS_PER_EXECUTION_CYCLE) {
         // Quit after a certain number of blocks to allow other searches to run
-        return false;  // (not done)
+        return false; // (not done)
       }
 
       current = upcoming.poll();
@@ -303,7 +292,8 @@ public class PathTrial implements WorkItem {
           double distance = current.getData().location().distanceTo(option.location());
           if (isAnimating) {
             // we're animating, so send it to the animation manager
-            Journey.get().animationManager().addAnimationCell(session.callerId, session.uuid, option.location());
+            Journey.get().animationManager().addAnimationCell(session.callerId, session.uuid,
+                option.location());
           }
           if (visited.containsKey(option.location())) {
             // Already visited, but see if it is better to come from this new direction
@@ -311,17 +301,11 @@ public class PathTrial implements WorkItem {
             if (current.getScore() + distance < that.getScore()) {
               that.setPrevious(current);
               that.setScore(current.getScore() + distance);
-              that.setData(new Step(that.getData().location(),
-                  distance,
-                  mode.type()));
+              that.setData(new Step(that.getData().location(), distance, mode.type()));
             }
           } else {
             // Not visited. Set up node, give it a score, and add it to the system
-            Node nextNode = new Node(
-                new Step(option.location(),
-                    distance,
-                    mode.type()),
-                current,
+            Node nextNode = new Node(new Step(option.location(), distance, mode.type()), current,
                 current.getScore() + distance);
             upcoming.add(nextNode);
             visited.put(option.location(), nextNode);
@@ -372,13 +356,8 @@ public class PathTrial implements WorkItem {
 
   @Override
   public String toString() {
-    return "[Path Search] {session: " + session.uuid
-        + ", origin: " + origin
-        + ", state: " + state
-        + ", cycles: " + cycles
-        + ", distance function: " + costFunction
-        + ", from cache: " + fromCache
-        + "}";
+    return "[Path Search] {session: " + session.uuid + ", origin: " + origin + ", state: " + state
+        + ", cycles: " + cycles + ", distance function: " + costFunction + ", from cache: " + fromCache + "}";
   }
 
   public int getTotalVisitedCells() {
@@ -460,6 +439,5 @@ public class PathTrial implements WorkItem {
       this.score = score;
     }
   }
-
 
 }

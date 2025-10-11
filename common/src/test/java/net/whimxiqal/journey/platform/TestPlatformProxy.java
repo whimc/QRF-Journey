@@ -24,20 +24,21 @@
 package net.whimxiqal.journey.platform;
 
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import net.kyori.adventure.key.Key;
 import net.whimxiqal.journey.Cell;
+import net.whimxiqal.journey.Color;
 import net.whimxiqal.journey.InternalJourneyPlayer;
 import net.whimxiqal.journey.Journey;
-import net.whimxiqal.journey.JourneyAgent;
 import net.whimxiqal.journey.JourneyPlayer;
 import net.whimxiqal.journey.Tunnel;
 import net.whimxiqal.journey.chunk.ChunkId;
@@ -47,18 +48,16 @@ import net.whimxiqal.journey.proxy.JourneyBlock;
 import net.whimxiqal.journey.proxy.JourneyChunk;
 import net.whimxiqal.journey.proxy.TestJourneyBlock;
 import net.whimxiqal.journey.proxy.TestJourneyChunk;
-import net.whimxiqal.journey.search.SearchSession;
-import net.whimxiqal.journey.search.flag.FlagSet;
-import net.whimxiqal.journey.Color;
 import org.bstats.charts.CustomChart;
 
 public class TestPlatformProxy implements PlatformProxy {
 
-  public static Map<Integer, TestWorld> worlds = new HashMap<>();  // domain -> world
+  public static Map<Key, TestWorld> worlds = new HashMap<>(); // domain -> world
   public static Map<String, Cell> pois = new HashMap<>();
   public static List<Tunnel> tunnels = new LinkedList<>();
   public static List<InternalJourneyPlayer> onlinePlayers = new LinkedList<>();
   public static int animatedBlocks = 0;
+  public Map<UUID, Set<String>> permissions = new HashMap<>();
 
   @Override
   public CompletableFuture<JourneyChunk> toChunk(ChunkId chunkId, boolean generate) {
@@ -71,7 +70,8 @@ public class TestPlatformProxy implements PlatformProxy {
   }
 
   @Override
-  public void spawnParticle(UUID playerUuid, String particle, Color color, int domain, double x, double y, double z) {
+  public void spawnParticle(UUID playerUuid, String particle, Color color, Key domain, double x, double y,
+      double z) {
     // ignore
   }
 
@@ -92,7 +92,7 @@ public class TestPlatformProxy implements PlatformProxy {
 
   @Override
   public Optional<Cell> entityCellLocation(UUID entityUuid) {
-    return Optional.of(new Cell(0, 0, 0, WorldLoader.domain(0)));  // just say everything is at the origin
+    return Optional.of(new Cell(0, 0, 0, Key.key("0"))); // just say everything is at the origin
   }
 
   @Override
@@ -101,12 +101,7 @@ public class TestPlatformProxy implements PlatformProxy {
   }
 
   @Override
-  public void prepareDestinationSearchSession(SearchSession searchSession, JourneyAgent agent, FlagSet flags, Cell destination) {
-    // do nothing extra here
-  }
-
-  @Override
-  public void sendAnimationBlock(UUID player, Cell location) {
+  public void sendAnimationBlocks(UUID player, Collection<Cell> location) {
     animatedBlocks += 1;
   }
 
@@ -117,32 +112,46 @@ public class TestPlatformProxy implements PlatformProxy {
   }
 
   @Override
-  public String domainName(int domain) {
-    return worlds.get(domain).name;
-  }
-
-  @Override
   public boolean sendGui(JourneyPlayer player) {
     return false;
   }
 
   @Override
   public Consumer<CustomChart> bStatsChartConsumer() {
-    return chart -> {/* nothing */};
+    return chart -> {
+      /* nothing */};
   }
 
   @Override
-  public Map<String, Map<String, Integer>> domainResourceKeys() {
-    return Collections.singletonMap("whimxiqal", TestPlatformProxy.worlds.values().stream().collect(Collectors.toMap(k -> k.name, k -> Journey.get().domainManager().domainIndex(k.uuid))));
+  public Map<Key, String> domains() {
+    return TestPlatformProxy.worlds.entrySet().stream()
+        .collect(Collectors.toMap(entry -> entry.getKey(), entry -> entry.getValue().name));
   }
 
   @Override
   public List<String> particleTypes() {
-    return List.of("glow");  // that's it
+    return List.of("glow"); // that's it
   }
 
   @Override
   public boolean isValidParticleType(String particleType) {
     return particleType.equals("glow");
+  }
+
+  public void grantAllPermissions(UUID player) {
+    permissions.remove(player);
+  }
+
+  public void revokeAllPermissions(UUID player) {
+    permissions.put(player, Set.of());
+  }
+
+  @Override
+  public boolean hasPermission(UUID uuid, String permission) {
+    var allowedPermissions = permissions.get(uuid);
+    if (allowedPermissions == null) {
+      return true;
+    }
+    return allowedPermissions.contains(permission);
   }
 }

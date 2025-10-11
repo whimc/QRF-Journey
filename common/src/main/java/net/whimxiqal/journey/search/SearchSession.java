@@ -40,7 +40,6 @@ import net.whimxiqal.journey.Describable;
 import net.whimxiqal.journey.Journey;
 import net.whimxiqal.journey.JourneyAgent;
 import net.whimxiqal.journey.JourneyPlayer;
-import net.whimxiqal.journey.Synchronous;
 import net.whimxiqal.journey.Tunnel;
 import net.whimxiqal.journey.navigation.Itinerary;
 import net.whimxiqal.journey.navigation.Mode;
@@ -120,17 +119,19 @@ public abstract class SearchSession implements Describable {
   public final CompletableFuture<Result> search() {
     for (FlagPair<?> flagPair : flags.flagPairs()) {
       if (!flagPair.valid()) {
-        Journey.logger().error("Search session " + uuid + " had flag " + flagPair.flag().name() + " with invalid value: " + flagPair.printValue());
+        Journey.logger().error("Search session " + uuid + " had flag " + flagPair.flag().name()
+            + " with invalid value: " + flagPair.printValue());
         future.complete(new Result(ResultState.STOPPED_ERROR, null));
       }
     }
     Journey.logger().debug(this + ": scheduling search");
     // kick off the first portion
-    Journey.get().proxy().schedulingManager().schedule(this::asyncSearch, true);
+    Journey.get().proxy().schedulingManager().scheduleAsync(this::asyncSearch);
     // Set up timeout task
     int timeout = flags().getValueFor(Flags.TIMEOUT);
     if (timeout > 0) {
-      Journey.get().proxy().schedulingManager().schedule(() -> stop(false), false, timeout * 20 /* ticks per second */);
+      Journey.get().proxy().schedulingManager().scheduleAsync(() -> stop(false),
+          timeout * 20 /* ticks per second */);
     }
     return future;
   }
@@ -267,17 +268,16 @@ public abstract class SearchSession implements Describable {
     return flags;
   }
 
-  @Synchronous
   public void initialize() {
     List<Mode> modeList = new LinkedList<>();
     for (ModeType modeType : agent.modeCapabilities()) {
       switch (modeType) {
-        case FLY -> {
+        case FLY: {
           if (!flags.getValueFor(Flags.FLY)) {
             continue;
           }
         }
-        case DIG -> {
+        case DIG: {
           if (!flags.getValueFor(Flags.DIG)) {
             continue;
           }
@@ -367,10 +367,7 @@ public abstract class SearchSession implements Describable {
    * so in that case, the caller would be something other than Player.
    */
   public enum Caller {
-    PLAYER,
-    CONSOLE,
-    PLUGIN,
-    OTHER
+    PLAYER, CONSOLE, PLUGIN, OTHER
   }
 
   public record Result(ResultState state, @Nullable Itinerary itinerary) {

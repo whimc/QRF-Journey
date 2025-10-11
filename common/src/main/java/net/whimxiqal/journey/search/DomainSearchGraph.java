@@ -23,6 +23,7 @@
 
 package net.whimxiqal.journey.search;
 
+import net.kyori.adventure.key.Key;
 import net.whimxiqal.journey.Cell;
 import net.whimxiqal.journey.Tunnel;
 import net.whimxiqal.journey.tools.AlternatingList;
@@ -33,9 +34,9 @@ import org.jetbrains.annotations.Nullable;
  */
 public class DomainSearchGraph extends SearchGraph {
 
-  private final int destinationDomain;
+  private final Key destinationDomain;
 
-  public DomainSearchGraph(GraphGoalSearchSession<DomainSearchGraph> session, Cell origin, int domain) {
+  public DomainSearchGraph(GraphGoalSearchSession<DomainSearchGraph> session, Cell origin, Key domain) {
     super(session, origin);
     this.destinationDomain = domain;
   }
@@ -44,7 +45,7 @@ public class DomainSearchGraph extends SearchGraph {
   @Override
   public ItineraryTrial calculate(boolean mustUseCache) {
     AlternatingList<Tunnel, DestinationPathTrial, Object> graphPath = findMinimumPath(originNode,
-        node -> node.destination().domain() == destinationDomain,
+        node -> node.exit().domain().equals(destinationDomain),
         trial -> !(mustUseCache && trial.isFromCache()));
     if (graphPath == null) {
       return null;

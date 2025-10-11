@@ -1,0 +1,10 @@
+name: Journey
+version: ${version}
+main: net.whimxiqal.journey.paper.JourneyPaper
+api-version: 1.21
+authors:
+  - whimxiqal
+description: A GPS for Minecraft
+website: https://journey.whimxiqal.net
+loader: net.whimxiqal.journey.paper.JourneyPaperLoader
+folia-supported: true

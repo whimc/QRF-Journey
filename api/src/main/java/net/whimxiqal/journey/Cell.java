@@ -23,12 +23,14 @@
 
 package net.whimxiqal.journey;
 
+import net.kyori.adventure.key.Key;
+
 /**
  * A generic location within 3-dimensional domain.
  * A domain is just a grid that is geometrically distinct from other domains.
  * A Minecraft world is considered a domain by Journey.
  */
-public record Cell(int blockX, int blockY, int blockZ, int domain) {
+public record Cell(int blockX, int blockY, int blockZ, Key domain) {
 
   /**
    * Get the cartesian from one locatable to another, ignoring domain.
@@ -71,6 +73,24 @@ public record Cell(int blockX, int blockY, int blockZ, int domain) {
   @Override
   public String toString() {
     return "{x: " + blockX + ", y: " + blockY + ", z: " + blockZ + ", domain: " + domain + "}";
+  }
+
+  /**
+   * Get the x coordinate of the chunk.
+   *
+   * @return chunk x
+   */
+  public int chunkX() {
+    return blockX >> 4;
+  }
+
+  /**
+   * Get the z coordinate of the chunk.
+   *
+   * @return chunk z
+   */
+  public int chunkZ() {
+    return blockZ >> 4;
   }
 
 }

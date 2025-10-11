@@ -36,7 +36,7 @@ import net.whimxiqal.journey.platform.TestJourneyPlayer;
 import net.whimxiqal.journey.platform.TestPlatformProxy;
 import net.whimxiqal.journey.platform.WorldLoader;
 import net.whimxiqal.journey.util.CommonLogger;
-import net.whimxiqal.journey.util.TestAudienceProvider;
+import net.whimxiqal.journey.util.ConsoleAudience;
 import net.whimxiqal.journey.util.TestLogger;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -46,7 +46,7 @@ import org.mockito.Mockito;
 public class JourneyTestHarness {
 
   public static final UUID PLAYER_UUID = UUID.randomUUID();
-  public static final boolean DEBUG = false;
+  public static final boolean DEBUG = true;
   protected static final Map<UUID, Itinerary> SESSION_ITINERARIES = new HashMap<>();
 
   @BeforeAll
@@ -60,33 +60,30 @@ public class JourneyTestHarness {
     Mockito.when(proxy.dataManager()).thenReturn(new TestDataManager());
     Mockito.when(proxy.platform()).thenReturn(new TestPlatformProxy());
     Mockito.when(proxy.configPath()).thenReturn(File.createTempFile("journey-config", "yml").toPath());
-    Mockito.when(proxy.messagesConfigPath()).thenReturn(File.createTempFile("journey-messages", "yml").toPath());
-    Mockito.when(proxy.audienceProvider()).thenReturn(new TestAudienceProvider());
+    Mockito.when(proxy.messagesConfigPath())
+        .thenReturn(File.createTempFile("journey-messages", "yml").toPath());
+    Mockito.when(proxy.consoleAudience()).thenReturn(new ConsoleAudience());
+    Mockito.when(proxy.playerAudience(PLAYER_UUID)).thenReturn(new ConsoleAudience());
     Journey.get().registerProxy(proxy);
 
     if (DEBUG) {
       Journey.logger().setLevel(CommonLogger.LogLevel.DEBUG);
     }
 
-    proxy.schedulingManager().initialize();  // initialize early so that we can schedule on main thread
-    TestSchedulingManager.runOnMainThread(() -> {
-      // journey initialization must happen on main thread
-      if (!Journey.get().init()) {
-        Assertions.fail("Journey initialization failed");
-      }
-      WorldLoader.initWorlds();
+    proxy.schedulingManager().initialize(); // initialize early so that we can schedule on main thread
+    // journey initialization must happen on main thread
+    Assertions.assertTrue(Journey.get().init(), "Journey initialization failed");
+    WorldLoader.initWorlds();
 
-      TestPlatformProxy.onlinePlayers.add(new TestJourneyPlayer(PLAYER_UUID));
-      JourneyApiProvider.get().registerTunnels("Journey", player -> TestPlatformProxy.tunnels);
-    });
+    TestPlatformProxy.onlinePlayers.add(new TestJourneyPlayer(PLAYER_UUID));
+    JourneyApi.get().registerTunnels("Journey", player -> TestPlatformProxy.tunnels);
   }
 
   @AfterAll
   static void shutdown() {
-    TestSchedulingManager.runOnMainThread(() -> {
-      Journey.get().shutdown();
-      Journey.remove();
-    });
+    Journey.get().shutdown();
+    Journey.remove();
+    TestPlatformProxy.worlds.clear();
   }
 
 }

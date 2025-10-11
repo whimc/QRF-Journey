@@ -24,7 +24,6 @@
 package net.whimxiqal.journey.navigation;
 
 import java.util.List;
-import net.whimxiqal.journey.Synchronous;
 import net.whimxiqal.journey.search.SearchStep;
 
 /**
@@ -38,7 +37,6 @@ public interface NavigationProgress {
    *
    * @return the steps
    */
-  @Synchronous
   List<? extends SearchStep> steps();
 
   /**
@@ -47,7 +45,6 @@ public interface NavigationProgress {
    *
    * @return the index of the current step
    */
-  @Synchronous
   int currentStepIndex();
 
   /**
@@ -57,7 +54,6 @@ public interface NavigationProgress {
    *
    * @return the progress made on the current step
    */
-  @Synchronous
   double currentStepProgress();
 
 }

@@ -38,7 +38,9 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import net.kyori.adventure.key.Key;
 import net.whimxiqal.journey.Cell;
+import net.whimxiqal.journey.CellTarget;
 import net.whimxiqal.journey.InternalJourneyPlayer;
 import net.whimxiqal.journey.Journey;
 import net.whimxiqal.journey.Proxy;
@@ -91,9 +93,7 @@ public class SchematicSearchTests {
     if (mockedBlockRegistry) {
       return;
     }
-    MockSettings settings = Mockito.withSettings()
-        .stubOnly()
-        .defaultAnswer(Answers.RETURNS_SMART_NULLS);
+    MockSettings settings = Mockito.withSettings().stubOnly().defaultAnswer(Answers.RETURNS_SMART_NULLS);
     for (String id : AllBlockTypes.IDS) {
       BlockType blockType = Mockito.mock(BlockType.class, settings);
       BlockState blockState = Mockito.mock(BlockState.class, settings);
@@ -121,10 +121,9 @@ public class SchematicSearchTests {
 
   static void setUp(SchematicLoader loader) throws IOException {
     // ADD DIFFERENT SEARCH PATHS HERE
-    searchParams.put("basic_uphill", new SearchParams("overworld1.schem",
-        new Cell(-15, 64, -56, 0),
-        new Cell(-117, 93, -203, 0),
-        List.of(new WalkMode(), new JumpMode())));
+    searchParams.put("basic_uphill",
+        new SearchParams("overworld1.schem", new Cell(-15, 64, -56, Key.key("0")),
+            new Cell(-117, 93, -203, Key.key("0")), List.of(new WalkMode(), new JumpMode())));
     /// END ADD SEARCH PATHS
 
     tryMockAllBlockTypes();
@@ -133,11 +132,13 @@ public class SchematicSearchTests {
 
     Journey.create();
     PlatformProxy schematicPlatformProxy = Mockito.mock(PlatformProxy.class, Mockito.RETURNS_DEFAULTS);
-    Mockito.when(schematicPlatformProxy.toChunk(Mockito.any(), Mockito.anyBoolean())).then((invocation) ->
-        CompletableFuture.completedFuture(new SchematicChunk(invocation.getArgument(0), loader.get())));
+    Mockito.when(schematicPlatformProxy.toChunk(Mockito.any(), Mockito.anyBoolean()))
+        .then((invocation) -> CompletableFuture
+            .completedFuture(new SchematicChunk(invocation.getArgument(0), loader.get())));
     Mockito.when(schematicPlatformProxy.toBlock(Mockito.any())).then((invocation) -> {
       Cell cell = invocation.getArgument(0);
-      return new SchematicBlock(cell, loader.get().getBlock(BlockVector3.at(cell.blockX(), cell.blockY(), cell.blockZ())).getBlockType());
+      return new SchematicBlock(cell,
+          loader.get().getBlock(BlockVector3.at(cell.blockX(), cell.blockY(), cell.blockZ())).getBlockType());
     });
     Mockito.when(schematicPlatformProxy.onlinePlayer(Mockito.<UUID>any())).then((invocation) -> {
       UUID uuid = invocation.getArgument(0);
@@ -147,28 +148,27 @@ public class SchematicSearchTests {
         return Optional.empty();
       }
     });
-    Mockito.when(schematicPlatformProxy.bStatsChartConsumer()).thenReturn(chart -> {});
+    Mockito.when(schematicPlatformProxy.bStatsChartConsumer()).thenReturn(chart -> {
+    });
     Proxy proxy = Mockito.mock(Proxy.class);
     Mockito.when(proxy.logger()).thenReturn(new TestLogger());
     Mockito.when(proxy.schedulingManager()).thenReturn(new TestSchedulingManager());
     Mockito.when(proxy.dataManager()).thenReturn(new TestDataManager());
     Mockito.when(proxy.platform()).thenReturn(schematicPlatformProxy);
     Mockito.when(proxy.configPath()).thenReturn(File.createTempFile("journey-config", "yml").toPath());
-    Mockito.when(proxy.messagesConfigPath()).thenReturn(File.createTempFile("journey-messages", "yml").toPath());
+    Mockito.when(proxy.messagesConfigPath())
+        .thenReturn(File.createTempFile("journey-messages", "yml").toPath());
     Journey.get().registerProxy(proxy);
 
     if (DEBUG) {
       Journey.logger().setLevel(CommonLogger.LogLevel.DEBUG);
     }
 
-    proxy.schedulingManager().initialize();  // initialize early so that we can schedule on main thread
-    TestSchedulingManager.runOnMainThread(() -> {
-      if (!Journey.get().init()) {
-        Assertions.fail("Journey initialization failed");
-      }
-
-      Journey.get().tunnelManager().register(player -> TestPlatformProxy.tunnels);
-    });
+    proxy.schedulingManager().initialize(); // initialize early so that we can schedule on main thread
+    if (!Journey.get().init()) {
+      Assertions.fail("Journey initialization failed");
+    }
+    Journey.get().tunnelManager().register(player -> TestPlatformProxy.tunnels);
   }
 
   @AfterAll
@@ -186,11 +186,8 @@ public class SchematicSearchTests {
       Assertions.assertTrue(TEST_LOADER.load(params.schematicFile()), "Schematic load failed");
 
       SearchSession session = new DummySearchSession();
-      DestinationPathTrial pathTrial = new DestinationPathTrial(session,
-          params.start(),
-          params.end(),
-          params.modes(),
-          0, null, ResultState.IDLE, false, false);
+      DestinationPathTrial pathTrial = new DestinationPathTrial(session, params.start(),
+          new CellTarget(params.end()), params.modes(), 0, null, ResultState.IDLE, false, false);
 
       while (!pathTrial.run()) {
         // do nothing, just wait utnil path trial is complete
@@ -218,17 +215,11 @@ public class SchematicSearchTests {
         // You can be more specific if you'd like to run only one benchmark per test.
         .include(this.getClass().getName() + ".*")
         // Set the following options as needed
-        .mode(org.openjdk.jmh.annotations.Mode.AverageTime)
-        .timeUnit(TimeUnit.MILLISECONDS)
-        .warmupTime(TimeValue.seconds(1))
-        .warmupIterations(1)
-        .measurementTime(TimeValue.seconds(5))
-        .measurementIterations(1)
-        .threads(1)
-        .forks(1)
-        .shouldFailOnError(true)
-        .shouldDoGC(true)
-//        .param("weight", DoubleStream.iterate(1, cur -> cur + 0.1).limit(40).mapToObj(String::valueOf).toArray(String[]::new))
+        .mode(org.openjdk.jmh.annotations.Mode.AverageTime).timeUnit(TimeUnit.MILLISECONDS)
+        .warmupTime(TimeValue.seconds(1)).warmupIterations(1).measurementTime(TimeValue.seconds(5))
+        .measurementIterations(1).threads(1).forks(1).shouldFailOnError(true).shouldDoGC(true)
+        // .param("weight", DoubleStream.iterate(1, cur -> cur +
+        // 0.1).limit(40).mapToObj(String::valueOf).toArray(String[]::new))
         .build();
 
     new Runner(opt).run();
@@ -241,11 +232,9 @@ public class SchematicSearchTests {
       Assertions.fail("No search params have the given id: " + BENCHMARKING_SEARCH_PARAM_ID);
     }
     SearchSession session = new DummySearchSession();
-    DestinationPathTrial pathTrial = new DestinationPathTrial(session,
-        params.start(),
-        params.end(),
-        List.of(new WalkMode(), new JumpMode()),
-        0, null, ResultState.IDLE, false, false);
+    DestinationPathTrial pathTrial = new DestinationPathTrial(session, params.start(),
+        new CellTarget(params.end()), List.of(new WalkMode(), new JumpMode()), 0, null, ResultState.IDLE,
+        false, false);
 
     while (!pathTrial.run()) {
       // do nothing, just wait until path trial is complete
@@ -274,8 +263,8 @@ public class SchematicSearchTests {
     /// Aux Counters End
 
     /// Parameters (set to private)
-//    @Param("1")
-//    private double weight = 1;
+    // @Param("1")
+    // private double weight = 1;
     /// Parameters End
 
     @Setup(Level.Iteration)

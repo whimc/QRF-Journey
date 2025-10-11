@@ -31,7 +31,6 @@ import java.util.Objects;
 import java.util.PriorityQueue;
 import java.util.Set;
 import java.util.function.Predicate;
-import net.whimxiqal.journey.Journey;
 import net.whimxiqal.journey.tools.AlternatingList;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -79,12 +78,9 @@ public abstract class WeightedGraph<N, E> {
     return existingNode;
   }
 
-  protected final AlternatingList<N, E, Object> findMinimumPath(N origin, N destination, Predicate<E> edgeFilter) {
-    return findMinimumPath(origin, current -> current.equals(destination), edgeFilter);
-  }
-
   @Nullable
-  protected final AlternatingList<N, E, Object> findMinimumPath(N origin, Predicate<N> done, Predicate<E> edgeFilter) {
+  protected final AlternatingList<N, E, Object> findMinimumPath(N origin, Predicate<N> done,
+      Predicate<E> edgeFilter) {
     Node originNode = makeOrGetNode(origin);
 
     PriorityQueue<Node> toVisit = new PriorityQueue<>(Comparator.comparingDouble(n -> n.distance));
@@ -130,10 +126,9 @@ public abstract class WeightedGraph<N, E> {
         // the outlet constructs with max double distance, aka, infinite distance
         if (outlet.getKey().getDistance() > current.getDistance() + edgeLength(outlet.getValue())) {
           // A better path for this node would be to come from current.
-          toVisit.remove(outlet.getKey());  // Remove from waiting queue in case it was already queued before
-          outlet.getKey().setDistance(current.getDistance()
-              + edgeLength(outlet.getValue())
-              + nodeWeight(outlet.getKey().getData()));
+          toVisit.remove(outlet.getKey()); // Remove from waiting queue in case it was already queued before
+          outlet.getKey().setDistance(
+              current.getDistance() + edgeLength(outlet.getValue()) + nodeWeight(outlet.getKey().getData()));
           outlet.getKey().setPrevious(current);
           toVisit.add(outlet.getKey());
         }
@@ -141,7 +136,7 @@ public abstract class WeightedGraph<N, E> {
     }
 
     resetNodes();
-    return null;  // Could not find it
+    return null; // Could not find it
 
   }
 
@@ -226,11 +221,8 @@ public abstract class WeightedGraph<N, E> {
 
     @Override
     public String toString() {
-      return String.format("Node: {data: %s, distance: %s, weight: %f}",
-          data.hashCode(),
-          distance > Double.MAX_VALUE * .9
-              ? "inf"
-              : distance, nodeWeight(data));
+      return String.format("Node: {data: %s, distance: %s, weight: %f}", data.hashCode(),
+          distance > Double.MAX_VALUE * .9 ? "inf" : distance, nodeWeight(data));
     }
   }
 

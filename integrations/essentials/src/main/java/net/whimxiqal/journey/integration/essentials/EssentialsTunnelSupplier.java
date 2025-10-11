@@ -41,8 +41,7 @@ import net.whimxiqal.journey.Cell;
 import net.whimxiqal.journey.JourneyAgent;
 import net.whimxiqal.journey.Tunnel;
 import net.whimxiqal.journey.TunnelSupplier;
-import net.whimxiqal.journey.bukkit.JourneyBukkitApi;
-import net.whimxiqal.journey.bukkit.JourneyBukkitApiProvider;
+import net.whimxiqal.journey.paper.JourneyPaperApi;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.Plugin;
 
@@ -59,39 +58,32 @@ public class EssentialsTunnelSupplier implements TunnelSupplier {
     }
     List<Tunnel> tunnels = new LinkedList<>();
     IEssentials essentials = JourneyEssentials.essentials();
-    JourneyBukkitApi journeyBukkit = JourneyBukkitApiProvider.get();
-
 
     // Warps
     IWarps warps = essentials.getWarps();
-    warps.getList()
-        .stream()
-        .map(warp -> {
-          try {
-            return Tunnel.builder(location.get(), journeyBukkit.toCell(warps.getWarp(warp)))
-                .permission("essentials.warp")
-                .prompt(() -> agent.audience().sendMessage(teleportMessage(warp, "/warp " + warp)))
-                .cost(TELEPORT_COST)
-                .build();
-          } catch (WarpNotFoundException | InvalidWorldException e) {
-            e.printStackTrace();
-            // This should definitely never happen
-            return null;
-          }
-        })
-        .filter(Objects::nonNull)
-        .forEach(tunnels::add);
+    warps.getList().stream().map(warp -> {
+      try {
+        return Tunnel.builder(location.get(), JourneyPaperApi.get().toCell(warps.getWarp(warp)))
+            .permission("essentials.warp")
+            .prompt(() -> agent.audience().sendMessage(teleportMessage(warp, "/warp " + warp)))
+            .cost(TELEPORT_COST).build();
+      } catch (WarpNotFoundException | InvalidWorldException e) {
+        e.printStackTrace();
+        // This should definitely never happen
+        return null;
+      }
+    }).filter(Objects::nonNull).forEach(tunnels::add);
 
     // Homes
     User user = essentials.getUser(agent.uuid());
     if (user.hasValidHomes()) {
       List<String> homes = user.getHomes();
       homes.stream()
-          .map(home -> Tunnel.builder(location.get(), journeyBukkit.toCell(user.getHome(home)))
+          .map(home -> Tunnel.builder(location.get(), JourneyPaperApi.get().toCell(user.getHome(home)))
               .permission("essentials.home")
-              .prompt(() -> agent.audience().sendMessage(teleportMessage(home, "/home" + (homes.size() == 1 ? "" : " " + home))))
-              .cost(TELEPORT_COST)
-              .build())
+              .prompt(() -> agent.audience()
+                  .sendMessage(teleportMessage(home, "/home" + (homes.size() == 1 ? "" : " " + home))))
+              .cost(TELEPORT_COST).build())
           .forEach(tunnels::add);
     }
 
@@ -100,18 +92,18 @@ public class EssentialsTunnelSupplier implements TunnelSupplier {
       if (!(plugin instanceof IEssentialsSpawn)) {
         throw new RuntimeException("EssentialsSpawn class could not be found");
       }
-      tunnels.add(Tunnel.builder(location.get(), journeyBukkit.toCell(((IEssentialsSpawn) plugin).getSpawn(user.getGroup())))
+      tunnels.add(Tunnel
+          .builder(location.get(),
+              JourneyPaperApi.get().toCell(((IEssentialsSpawn) plugin).getSpawn(user.getGroup())))
           .permission("essentials.spawn")
-          .prompt(() -> agent.audience().sendMessage(teleportMessage("spawn", "/spawn")))
-          .cost(TELEPORT_COST)
+          .prompt(() -> agent.audience().sendMessage(teleportMessage("spawn", "/spawn"))).cost(TELEPORT_COST)
           .build());
     }
     return tunnels;
   }
 
   private Component teleportMessage(String name, String command) {
-    return Component.text("Teleport to ")
-        .append(Component.text(name).color(NamedTextColor.AQUA))
+    return Component.text("Teleport to ").append(Component.text(name).color(NamedTextColor.AQUA))
         .append(Component.text(" using the command "))
         .append(Component.text(command).color(NamedTextColor.AQUA));
   }

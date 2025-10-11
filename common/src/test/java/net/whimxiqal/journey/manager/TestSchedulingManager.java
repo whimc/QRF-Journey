@@ -37,6 +37,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
+import net.whimxiqal.journey.Cell;
 import net.whimxiqal.journey.Journey;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -57,7 +58,7 @@ public class TestSchedulingManager implements SchedulingManager {
     });
     asyncThreads = Executors.newScheduledThreadPool(4, r -> {
       Thread thread = new Thread(r);
-      thread.setName("Async Server Thread " + thread.getId());
+      thread.setName("Async Server Thread " + thread.threadId());
       return thread;
     });
     futureMap = new ConcurrentHashMap<>();
@@ -73,10 +74,10 @@ public class TestSchedulingManager implements SchedulingManager {
     };
   }
 
-  public static <T> T runOnMainThread(Supplier<T> supplier) {
+  public static <T> T supplyAsync(Supplier<T> supplier) {
     CompletableFuture<T> future = new CompletableFuture<>();
     AtomicReference<Throwable> error = new AtomicReference<>();
-    Journey.get().proxy().schedulingManager().schedule(() -> {
+    Journey.get().proxy().schedulingManager().scheduleAsync(() -> {
       T result = null;
       try {
         result = supplier.get();
@@ -86,7 +87,7 @@ public class TestSchedulingManager implements SchedulingManager {
       } finally {
         future.complete(result);
       }
-    }, false);
+    });
     T result = null;
     try {
       result = future.get();
@@ -100,46 +101,60 @@ public class TestSchedulingManager implements SchedulingManager {
     return result;
   }
 
-  public static void runOnMainThread(Runnable runnable) {
-    runOnMainThread(() -> {
+  public static void runAsync(Runnable runnable) {
+    supplyAsync(() -> {
       runnable.run();
       return null;
     });
   }
 
   @Override
-  public void schedule(Runnable runnable, boolean async) {
-    if (async) {
-      asyncThreads.execute(runWithCatch(runnable));
-    } else {
-      mainThread.execute(runWithCatch(runnable));
-    }
+  public void scheduleAsync(Runnable runnable) {
+    mainThread.execute(runWithCatch(runnable));
   }
 
   @Override
-  public void schedule(Runnable runnable, boolean async, int tickDelay) {
-    ScheduledExecutorService service = async ? asyncThreads : mainThread;
-    service.schedule(runnable, tickDelay * MS_PER_TICK, TimeUnit.MILLISECONDS);
+  public void scheduleAsync(Runnable runnable, int tickDelay) {
+    asyncThreads.schedule(runnable, tickDelay * MS_PER_TICK, TimeUnit.MILLISECONDS);
   }
 
   @Override
-  public UUID scheduleRepeat(Runnable runnable, boolean async, int tickPeriod) {
+  public void scheduleSync(Cell location, Runnable runnable) {
+    scheduleGlobalSync(runnable);
+  }
+
+  @Override
+  public void scheduleGlobalSync(Runnable runnable) {
+    mainThread.execute(runWithCatch(runnable));
+  }
+
+  @Override
+  public CancelHandle scheduleRepeatAsync(Runnable runnable, int tickPeriod) {
     UUID taskUuid = UUID.randomUUID();
-    ScheduledExecutorService service = async ? asyncThreads : mainThread;
     long periodMs = tickPeriod * MS_PER_TICK;
-    ScheduledFuture<?> future = service.scheduleAtFixedRate(runWithCatch(runnable), periodMs, periodMs, TimeUnit.MILLISECONDS);
+    ScheduledFuture<?> future = asyncThreads.scheduleAtFixedRate(runWithCatch(runnable), periodMs, periodMs,
+        TimeUnit.MILLISECONDS);
     futureMap.put(taskUuid, future);
-    return taskUuid;
+    return handle(taskUuid);
   }
 
   @Override
-  public void cancelTask(UUID taskId) {
-    futureMap.get(taskId).cancel(true);
+  public CancelHandle scheduleRepeatGlobalSync(Runnable runnable, int tickPeriod) {
+    UUID taskUuid = UUID.randomUUID();
+    long periodMs = tickPeriod * MS_PER_TICK;
+    ScheduledFuture<?> future = mainThread.scheduleAtFixedRate(runWithCatch(runnable), periodMs, periodMs,
+        TimeUnit.MILLISECONDS);
+    futureMap.put(taskUuid, future);
+    return handle(taskUuid);
   }
 
   @Override
-  public boolean isMainThread() {
-    return Thread.currentThread().getId() == mainThreadId.get();
+  public CancelHandle scheduleRepeatEntity(UUID entityId, Runnable runnable, int tickPeriod) {
+    return scheduleRepeatGlobalSync(runnable, tickPeriod);
+  }
+
+  private CancelHandle handle(UUID taskId) {
+    return () -> futureMap.get(taskId).cancel(true);
   }
 
   @Override
@@ -150,11 +165,11 @@ public class TestSchedulingManager implements SchedulingManager {
     }
     CompletableFuture<Void> future = new CompletableFuture<>();
     mainThread.execute(() -> {
-      mainThreadId.set(Thread.currentThread().getId());
+      mainThreadId.set(Thread.currentThread().threadId());
       future.complete(null);
     });
     try {
-      future.get();  // wait for it to be done
+      future.get(); // wait for it to be done
     } catch (InterruptedException | ExecutionException e) {
       throw new RuntimeException(e);
     }
@@ -171,23 +186,14 @@ public class TestSchedulingManager implements SchedulingManager {
     TestSchedulingManager schedulingManager = new TestSchedulingManager();
     schedulingManager.initialize();
 
-    // test isMainThread
-    CompletableFuture<Boolean> future1 = new CompletableFuture<>();
-    schedulingManager.schedule(() -> future1.complete(schedulingManager.isMainThread()), false);
-    Assertions.assertTrue(future1.get());
-
-    CompletableFuture<Boolean> future2 = new CompletableFuture<>();
-    schedulingManager.schedule(() -> future2.complete(schedulingManager.isMainThread()), true);
-    Assertions.assertFalse(future2.get());
-
     // test repeatable
     AtomicInteger counter1 = new AtomicInteger(0);
     AtomicInteger counter2 = new AtomicInteger(0);
-    AtomicReference<UUID> taskUuid1 = new AtomicReference<>();
-    AtomicReference<UUID> taskUuid2 = new AtomicReference<>();
+    AtomicReference<CancelHandle> taskHandle1 = new AtomicReference<>();
+    AtomicReference<CancelHandle> taskHandle2 = new AtomicReference<>();
     CompletableFuture<Void> future3 = new CompletableFuture<>();
     CompletableFuture<Void> future4 = new CompletableFuture<>();
-    taskUuid1.set(schedulingManager.scheduleRepeat(() -> {
+    taskHandle1.set(schedulingManager.scheduleRepeatGlobalSync(() -> {
       if (counter1.get() == 10) {
         return;
       }
@@ -195,8 +201,8 @@ public class TestSchedulingManager implements SchedulingManager {
       if (current == 10) {
         future3.complete(null);
       }
-    }, false, 1));
-    taskUuid2.set(schedulingManager.scheduleRepeat(() -> {
+    }, 1));
+    taskHandle2.set(schedulingManager.scheduleRepeatGlobalSync(() -> {
       if (counter2.get() == 10) {
         return;
       }
@@ -204,24 +210,24 @@ public class TestSchedulingManager implements SchedulingManager {
       if (current == 10) {
         future4.complete(null);
       }
-    }, false, 1));
+    }, 1));
     future3.get();
     future4.get();
     Assertions.assertEquals(10, counter1.get());
     Assertions.assertEquals(10, counter2.get());
-    schedulingManager.cancelTask(taskUuid1.get());
-    schedulingManager.cancelTask(taskUuid2.get());
+    taskHandle1.get().cancel();
+    taskHandle2.get().cancel();
 
     // make sure exceptions don't stop new scheduled tasks
-    schedulingManager.schedule(() -> {
+    schedulingManager.scheduleAsync(() -> {
       throw new RuntimeException();
-    }, true);
+    });
     CompletableFuture<Void> future5 = new CompletableFuture<>();
     AtomicBoolean toggle = new AtomicBoolean(false);
-    schedulingManager.schedule(() -> {
+    schedulingManager.scheduleAsync(() -> {
       toggle.set(true);
       future5.complete(null);
-    }, true);
+    });
     future5.get();
     Assertions.assertTrue(toggle.get());
 

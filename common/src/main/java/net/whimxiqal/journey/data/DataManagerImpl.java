@@ -28,7 +28,6 @@ import net.whimxiqal.journey.Journey;
 import net.whimxiqal.journey.config.Settings;
 import net.whimxiqal.journey.data.sql.SqlPathRecordManager;
 import net.whimxiqal.journey.data.sql.SqlPersonalWaypointManager;
-import net.whimxiqal.journey.data.sql.SqlTunnelDataManager;
 import net.whimxiqal.journey.data.sql.SqlPublicWaypointManager;
 import net.whimxiqal.journey.data.sql.mysql.MySqlConnectionController;
 import net.whimxiqal.journey.data.sql.sqlite.SqliteConnectionController;
@@ -41,7 +40,6 @@ public class DataManagerImpl implements DataManager {
   private PersonalWaypointManager personalWaypointManager;
   private PublicWaypointManager publicWaypointManager;
   private PathRecordManager pathRecordManager;
-  private TunnelDataManager tunnelDataManager;
 
   public static final String DATABASE_FILE_NAME = "journey.db";
 
@@ -59,11 +57,11 @@ public class DataManagerImpl implements DataManager {
     try {
       switch (Settings.STORAGE_TYPE.getValue()) {
         case SQLITE -> {
-          SqliteConnectionController sqliteController = new SqliteConnectionController(Journey.get().proxy().dataFolder() + "/" + DATABASE_FILE_NAME);
+          SqliteConnectionController sqliteController = new SqliteConnectionController(
+              Journey.get().proxy().dataFolder() + "/" + DATABASE_FILE_NAME);
           personalWaypointManager = new SqlPersonalWaypointManager(sqliteController);
           publicWaypointManager = new SqlPublicWaypointManager(sqliteController);
           pathRecordManager = new SqlPathRecordManager(sqliteController);
-          tunnelDataManager = new SqlTunnelDataManager(sqliteController);
           versionHandler = new SqliteDataVersionHandler(sqliteController);
         }
         case MYSQL -> {
@@ -71,13 +69,13 @@ public class DataManagerImpl implements DataManager {
           personalWaypointManager = new SqlPersonalWaypointManager(mysqlController);
           publicWaypointManager = new SqlPublicWaypointManager(mysqlController);
           pathRecordManager = new SqlPathRecordManager(mysqlController);
-          tunnelDataManager = new SqlTunnelDataManager(mysqlController);
           versionHandler = new MysqlDataVersionHandler(mysqlController);
         }
         default -> throw new RuntimeException();
       }
     } catch (HikariPool.PoolInitializationException e) {
-      Journey.logger().error("[Data Manager] Database connection pool initialization failed: " + e.getMessage());
+      Journey.logger()
+          .error("[Data Manager] Database connection pool initialization failed: " + e.getMessage());
       databaseVersion = DataVersion.ERROR;
       return;
     }
@@ -106,7 +104,8 @@ public class DataManagerImpl implements DataManager {
     if (this.databaseVersion != DataVersion.latest()) {
       Journey.logger().error(String.format("Failed to migrate database beyond %s", this.databaseVersion));
     } else if (updated) {
-      Journey.logger().info(String.format("[Data Manager] Updated database to latest version (%s)", this.databaseVersion));
+      Journey.logger().info(
+          String.format("[Data Manager] Updated database to latest version (%s)", this.databaseVersion));
     }
 
     if (updated) {
@@ -134,8 +133,4 @@ public class DataManagerImpl implements DataManager {
     return pathRecordManager;
   }
 
-  @Override
-  public TunnelDataManager netherPortalManager() {
-    return tunnelDataManager;
-  }
 }

@@ -23,12 +23,12 @@
 
 package net.whimxiqal.journey.platform;
 
-import java.util.UUID;
+import net.kyori.adventure.key.Key;
 
 public class TestWorld {
 
   public String name;
-  public UUID uuid;
+  public Key key;
   public CellType[][] cells;
   public int lengthX;
   public int lengthY;
