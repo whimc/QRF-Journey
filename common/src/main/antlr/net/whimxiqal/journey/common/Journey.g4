@@ -104,7 +104,7 @@ ident: ID
         | TRUE
         | UNSET
         | WAYPOINT;
-ID: [a-zA-Z0-9\-_:,.]+;
+ID: [a-zA-Z0-9_\-_:,.]+;
 SINGLE_QUOTE: '\'';
 DOUBLE_QUOTE: '"';
 WS : [ \t\r\n]+ -> channel(HIDDEN); // skip spaces, tabs, newlines
