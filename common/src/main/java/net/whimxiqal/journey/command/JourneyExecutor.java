@@ -729,6 +729,7 @@ public class JourneyExecutor implements CommandExecutor {
           }
           try {
             Journey.get().configManager().load();
+            Journey.get().netherManager().reloadFromDatabase();
           } catch (SerializationException e) {
             Messages.COMMAND_INTERNAL_ERROR.sendTo(src.audience(), Formatter.ERROR);
             e.printStackTrace();

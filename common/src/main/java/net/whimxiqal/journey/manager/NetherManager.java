@@ -50,12 +50,21 @@ public final class NetherManager {
   private final Map<Cell, Cell> portalConnections = new ConcurrentHashMap<>();
 
   public void initialize() {
-    // Calls to the db directly
+    reloadFromDatabase();
+    Journey.get().tunnelManager().register(player -> Journey.get().netherManager().makeTunnels());
+  }
+
+  /**
+   * Reload persisted portal links from the database into memory.
+   * Pathfinding uses this cache, not the database directly — call after editing journey_tunnels.
+   */
+  public void reloadFromDatabase() {
+    portalConnections.clear();
     Journey.get().proxy().dataManager()
         .netherPortalManager()
         .getAllTunnels(TunnelType.NETHER)
         .forEach(tunnel -> portalConnections.put(tunnel.origin(), tunnel.destination()));
-    Journey.get().tunnelManager().register(player -> Journey.get().netherManager().makeTunnels());
+    Journey.logger().info("[Nether Manager] Loaded " + portalConnections.size() + " portal tunnel(s) from database");
   }
 
   /**
