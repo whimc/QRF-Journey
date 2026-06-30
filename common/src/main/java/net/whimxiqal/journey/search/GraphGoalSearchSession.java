@@ -69,6 +69,7 @@ public abstract class GraphGoalSearchSession<G extends SearchGraph> extends Sear
         stateInfo.allDomains.add(tunnel.origin().domain());
         stateInfo.allDomains.add(tunnel.destination().domain());
       }
+      registerAdditionalSearchDomains(stateInfo.allDomains);
 
       // Prepare tunnel maps
       for (Integer domain : stateInfo.allDomains) {
@@ -101,6 +102,9 @@ public abstract class GraphGoalSearchSession<G extends SearchGraph> extends Sear
       for (Integer domain : stateInfo.allDomains) {
         for (Tunnel pathTrialOriginTunnel : stateInfo.tunnelsByDestinationDomain.get(domain)) {
           for (Tunnel pathTrialDestinationTunnel : stateInfo.tunnelsByOriginDomain.get(domain)) {
+            if (pathTrialOriginTunnel.destination().domain() != pathTrialDestinationTunnel.origin().domain()) {
+              continue;
+            }
             stateInfo.searchGraph.addPathTrialTunnelToTunnel(
                 pathTrialOriginTunnel,
                 pathTrialDestinationTunnel,
@@ -114,6 +118,10 @@ public abstract class GraphGoalSearchSession<G extends SearchGraph> extends Sear
   }
 
   abstract G createSearchGraph();
+
+  protected void registerAdditionalSearchDomains(Set<Integer> domains) {
+    domains.add(origin.domain());
+  }
 
   protected void initSearchExtra() {
     // do nothing by default
