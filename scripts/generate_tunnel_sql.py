@@ -11,6 +11,13 @@ WORLDS_DIR = Path(r"d:\Backup\qrf-whimc-server-local\worlds")
 PORTAL_FILE = Path(r"d:\Backup\qrf-whimc-server-local\plugins\WHIMC-Portals\portalData.yml")
 OUT_FILE = Path(__file__).resolve().parent / "journey_tunnels_from_portals.sql"
 
+# Same-world links from portal arrival pads down to underground habitat levels.
+# WHIMC-Portals teleports to surface Y while NPCs live ~20-30 blocks below.
+HABITAT_ELEVATORS = [
+    ("ColderHot-surface-to-habitat", "ColderHot", -97, 78, 7, "ColderHot", -88, 60, -80),
+    ("ColderCold-surface-to-habitat", "ColderCold", -90, 77, -10, "ColderCold", -77, 54, -50),
+]
+
 
 def read_uid(path: Path) -> uuid.UUID:
     return uuid.UUID(bytes=path.read_bytes())
@@ -108,10 +115,16 @@ def main() -> None:
             f"  (UNHEX('{origin_uuid.hex}'), {ox}, {oy}, {oz}, "
             f"UNHEX('{dest_uuid.hex}'), {dx}, {dy}, {dz}, 0) -- {name}"
         )
+    for name, world, ox, oy, oz, dw, dx, dy, dz in HABITAT_ELEVATORS:
+        world_uuid = world_uuids[world]
+        value_lines.append(
+            f"  (UNHEX('{world_uuid.hex}'), {ox}, {oy}, {oz}, "
+            f"UNHEX('{world_uuid.hex}'), {dx}, {dy}, {dz}, 0) -- {name}"
+        )
     lines.append(",\n".join(value_lines))
     lines.append(";")
     lines.append("")
-    lines.append(f"-- {len(rows)} cross-world tunnels")
+    lines.append(f"-- {len(rows)} cross-world tunnels + {len(HABITAT_ELEVATORS)} habitat elevators")
     lines.append("-- Skipped portals:")
     for portal_name, reason in skipped:
         lines.append(f"--   {portal_name}: {reason}")
