@@ -84,7 +84,20 @@ public abstract class GraphGoalSearchSession<G extends SearchGraph> extends Sear
 
       stateInfo.searchGraph = createSearchGraph();
 
-      // Collect path trials
+      // Collect origin -> tunnel path trials for every tunnel leaving the origin's domain.
+      // This must be done independently of the tunnel -> tunnel collection below. Previously it was
+      // nested inside the loop over incoming tunnels, so the origin was only ever connected to its
+      // outgoing tunnels when its domain also happened to have an incoming tunnel. That silently
+      // broke cross-world routes (e.g. a nether portal whose return direction had not been recorded
+      // yet), making valid portal paths unsolvable even though they were presented as viable.
+      List<Tunnel> originDomainTunnels = stateInfo.tunnelsByOriginDomain.get(origin.domain());
+      if (originDomainTunnels != null) {
+        for (Tunnel pathTrialDestinationTunnel : originDomainTunnels) {
+          stateInfo.searchGraph.addPathTrialOriginToTunnel(pathTrialDestinationTunnel, modes(), persistentOrigin);
+        }
+      }
+
+      // Collect tunnel -> tunnel path trials
       for (Integer domain : stateInfo.allDomains) {
         for (Tunnel pathTrialOriginTunnel : stateInfo.tunnelsByDestinationDomain.get(domain)) {
           for (Tunnel pathTrialDestinationTunnel : stateInfo.tunnelsByOriginDomain.get(domain)) {
@@ -92,9 +105,6 @@ public abstract class GraphGoalSearchSession<G extends SearchGraph> extends Sear
                 pathTrialOriginTunnel,
                 pathTrialDestinationTunnel,
                 modes());
-            if (domain.equals(origin.domain())) {
-              stateInfo.searchGraph.addPathTrialOriginToTunnel(pathTrialDestinationTunnel, modes(), persistentOrigin);
-            }
           }
         }
       }
