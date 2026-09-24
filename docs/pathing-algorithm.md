@@ -15,17 +15,7 @@ If the player and the destination are in the same world, the graph also has a di
 
 Walking between worlds is impossible. Only a tunnel can change domain. `SearchGraph.addPathTrial` drops any edge whose ends are in different worlds.
 
-```mermaid
-flowchart TD
-  start[Start search] --> graph[Build route graph of tunnels]
-  graph --> dijkstra[Dijkstra: cheapest tunnel sequence]
-  dijkstra -->|no route| fail[Search failed]
-  dijkstra -->|candidate itinerary| local[Run a local A* search on each unproven edge]
-  local -->|an edge cannot be walked| retry[Mark that edge impossible and try the next route]
-  retry --> dijkstra
-  local -->|every edge has a path| ok[Itinerary: steps plus tunnel jumps]
-  timeout[Timeout fires] --> fail
-```
+![Search flow: build a route, try each leg, then fail, retry, or finish](pathing-flow.png)
 
 The loop lives in `GraphGoalSearchSession.runSearchUnit`. The graph solver is `WeightedGraph.findMinimumPath`. The block search is `PathTrial.runSafe`.
 
